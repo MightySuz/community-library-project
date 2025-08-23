@@ -1,0 +1,56 @@
+{
+  "name": "community-library-web",
+  "version": "1.0.0",
+  "description": "Web app for Community Library",
+  "homepage": "https://yourusername.github.io/community-library",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.14.3",
+    "@mui/material": "^5.14.5",
+    "axios": "^1.5.0",
+    "formik": "^2.4.3",
+    "lucide-react": "^0.541.0",
+    "react": "^18.2.0",
+    "react-barcode-reader": "^0.0.2",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-query": "^3.39.3",
+    "react-router-dom": "^6.15.0",
+    "react-scripts": "5.0.1",
+    "react-toastify": "^11.0.5",
+    "socket.io-client": "^4.7.2",
+    "web-vitals": "^3.4.0",
+    "yup": "^1.2.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
+    "dev": "react-scripts start",
+    "lint": "eslint src/"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:5000"
+}

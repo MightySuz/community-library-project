@@ -1,0 +1,78 @@
+{
+  "name": "community-library-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Community Library app",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "echo 'No build step required for Node.js'",
+    "test": "jest --testTimeout=30000",
+    "test:watch": "jest --watch --testTimeout=30000",
+    "test:coverage": "jest --coverage --testTimeout=30000",
+    "test:admin": "jest tests/admin.test.js --testTimeout=30000",
+    "test:publisher": "jest tests/integration/publisher.test.js --testTimeout=30000",
+    "test:publisher-service": "jest tests/unit/publisherService.test.js --testTimeout=30000",
+    "test:borrower": "jest --testPathPattern=borrower --testTimeout=30000",
+    "test:borrower-service": "jest tests/unit/borrowerService.test.js --testTimeout=30000",
+    "test:rental": "jest --testPathPattern=rental --testTimeout=30000",
+    "test:integration": "jest tests/integration --testTimeout=30000",
+    "test:unit": "jest tests/unit --testTimeout=30000",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "joi": "^17.9.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.5.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1",
+    "socket.io": "^4.7.2",
+    "stripe": "^13.2.0",
+    "twilio": "^4.23.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2",
+    "mongodb-memory-server": "^8.15.1",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  },
+  "keywords": [
+    "api",
+    "backend",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "Community Library Team",
+  "license": "MIT",
+  "jest": {
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/config/**",
+      "!src/uploads/**"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "verbose": true
+  }
+}

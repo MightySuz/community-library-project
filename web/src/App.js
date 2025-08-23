@@ -1,0 +1,1321 @@
+﻿import React, { useState } from 'react';
+
+const App = () => {
+  const [currentPage, setCurrentPage] = useState("home");
+  const [user, setUser] = useState(null);
+  const [userCommunity, setUserCommunity] = useState(null);
+  const [userBooks, setUserBooks] = useState([]); // Store user's added books
+
+  const navigate = (page) => {
+    setCurrentPage(page);
+  };
+
+  const Header = () => (
+    <header style={{
+      backgroundColor: "#2E7D32",
+      color: "white",
+      padding: "1rem 2rem",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}>
+      <h1 style={{ margin: 0, cursor: "pointer" }} onClick={() => navigate("home")}>
+        📚 Community Library
+      </h1>
+      <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+        <button 
+          onClick={() => navigate("home")}
+          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+        >
+          Home
+        </button>
+        <button 
+          onClick={() => navigate("books")}
+          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+        >
+          Books
+        </button>
+        <button 
+          onClick={() => navigate("dashboard")}
+          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+        >
+          Dashboard
+        </button>
+        {user ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>Welcome, {user.name}!</span>
+            <button 
+              onClick={() => { setUser(null); navigate("home"); }}
+              style={{ 
+                backgroundColor: "rgba(255,255,255,0.2)", 
+                border: "1px solid white", 
+                color: "white", 
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={() => navigate("login")}
+            style={{ 
+              backgroundColor: "rgba(255,255,255,0.2)", 
+              border: "1px solid white", 
+              color: "white", 
+              padding: "0.5rem 1rem",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+          >
+            Login
+          </button>
+        )}
+      </nav>
+    </header>
+  );
+
+  const HomePage = () => (
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+      <section style={{ textAlign: "center", marginBottom: "60px" }}>
+        <h2 style={{ fontSize: "2.5rem", marginBottom: "20px", color: "#333" }}>
+          Welcome to Community Library
+        </h2>
+        <p style={{ fontSize: "1.2rem", color: "#666", marginBottom: "30px" }}>
+          Share books, build connections, and discover your next great read in your local community.
+        </p>
+        <div>
+          <button 
+            onClick={() => navigate("register")}
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "12px 24px",
+              fontSize: "1rem",
+              borderRadius: "4px",
+              marginRight: "10px",
+              cursor: "pointer"
+            }}>
+            Join Now
+          </button>
+          <button 
+            onClick={() => navigate("books")}
+            style={{
+              backgroundColor: "transparent",
+              color: "#2E7D32",
+              border: "2px solid #2E7D32",
+              padding: "12px 24px",
+              fontSize: "1rem",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}>
+            Browse Books
+          </button>
+        </div>
+      </section>
+
+      <section style={{ 
+        display: "grid", 
+        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", 
+        gap: "30px", 
+        marginBottom: "60px" 
+      }}>
+        <div style={{ 
+          padding: "30px", 
+          backgroundColor: "white", 
+          borderRadius: "8px", 
+          textAlign: "center",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+        }}>
+          <h3 style={{ color: "#2E7D32", marginBottom: "15px" }}>📖 Discover Books</h3>
+          <p>Browse thousands of books available in your community</p>
+          <button 
+            onClick={() => navigate("books")}
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              marginTop: "10px"
+            }}
+          >
+            Explore Now
+          </button>
+        </div>
+        <div style={{ 
+          padding: "30px", 
+          backgroundColor: "white", 
+          borderRadius: "8px", 
+          textAlign: "center",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+        }}>
+          <h3 style={{ color: "#2E7D32", marginBottom: "15px" }}>🤝 Share & Lend</h3>
+          <p>List your books and help others discover great reads</p>
+          <button 
+            onClick={() => navigate(user ? "dashboard" : "login")}
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              marginTop: "10px"
+            }}
+          >
+            Get Started
+          </button>
+        </div>
+        <div style={{ 
+          padding: "30px", 
+          backgroundColor: "white", 
+          borderRadius: "8px", 
+          textAlign: "center",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+        }}>
+          <h3 style={{ color: "#2E7D32", marginBottom: "15px" }}>💱 Digital Wallet</h3>
+          <p>Secure transactions with our built-in wallet system</p>
+          <button 
+            onClick={() => navigate(user ? "dashboard" : "login")}
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              marginTop: "10px"
+            }}
+          >
+            Learn More
+          </button>
+        </div>
+      </section>
+
+      <section style={{
+        textAlign: "center",
+        padding: "40px",
+        backgroundColor: "#f0f7f0",
+        borderRadius: "8px"
+      }}>
+        <h3 style={{ marginBottom: "20px", color: "#333" }}>
+          Ready to Start Your Library Journey?
+        </h3>
+        <p style={{ marginBottom: "30px", color: "#666" }}>
+          Join thousands of book lovers in your community. Share your books, discover new titles.
+        </p>
+        <button 
+          onClick={() => navigate("register")}
+          style={{
+            backgroundColor: "#2E7D32",
+            color: "white",
+            border: "none",
+            padding: "15px 30px",
+            fontSize: "1.1rem",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}>
+          Get Started Today
+        </button>
+      </section>
+    </div>
+  );
+
+  const BooksPage = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showAddBook, setShowAddBook] = useState(false);
+    
+    // Sample books data with community filtering
+    const allBooks = [
+      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", available: true, price: "₹50/day", community: "Green Valley Society", isbn: "9780060935467" },
+      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", available: false, price: "₹40/day", community: "Green Valley Society", isbn: "9780451524935" },
+      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", available: true, price: "₹60/day", community: "Green Valley Society", isbn: "9780141439518" },
+      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", available: true, price: "₹45/day", community: "Sunset Apartments", isbn: "9780743273565" },
+      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", available: true, price: "₹80/day", community: "Green Valley Society", isbn: "9780439708180" },
+      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", available: false, price: "₹55/day", community: "Sunset Apartments", isbn: "9780316769174" },
+      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", available: true, price: "₹35/day", community: "Green Valley Society", isbn: "9788173711466" },
+      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", available: true, price: "₹30/day", community: "Green Valley Society", isbn: "9788129116482" },
+    ];
+
+    // Filter books by user's community
+    const communityBooks = user && userCommunity 
+      ? allBooks.filter(book => book.community === userCommunity)
+      : allBooks.filter(book => book.community === "Green Valley Society"); // Default community for demo
+
+    const filteredBooks = communityBooks.filter(book => 
+      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const AddBookForm = () => {
+      const [bookData, setBookData] = useState({
+        title: '',
+        author: '',
+        isbn: '',
+        condition: 'good',
+        price: '',
+        description: ''
+      });
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const newBook = {
+          id: Date.now(), // Simple ID generation
+          title: bookData.title,
+          author: bookData.author,
+          isbn: bookData.isbn,
+          condition: bookData.condition,
+          price: `₹${bookData.price}/day`,
+          description: bookData.description,
+          owner: user.name,
+          available: true,
+          community: userCommunity,
+          dateAdded: new Date().toLocaleDateString(),
+          earnings: '₹0'
+        };
+        
+        // Add book to user's collection
+        setUserBooks(prev => [...prev, newBook]);
+        
+        alert(`Book "${bookData.title}" added successfully to your collection!`);
+        setShowAddBook(false);
+        setBookData({ title: '', author: '', isbn: '', condition: 'good', price: '', description: '' });
+      };
+
+      return (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#333' }}>Add New Book</h3>
+              <button
+                onClick={() => setShowAddBook(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <input
+                type="text"
+                placeholder="Book Title *"
+                value={bookData.title}
+                onChange={(e) => setBookData(prev => ({ ...prev, title: e.target.value }))}
+                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Author *"
+                value={bookData.author}
+                onChange={(e) => setBookData(prev => ({ ...prev, author: e.target.value }))}
+                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
+                required
+              />
+              <input
+                type="text"
+                placeholder="ISBN (optional)"
+                value={bookData.isbn}
+                onChange={(e) => setBookData(prev => ({ ...prev, isbn: e.target.value }))}
+                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+              <select
+                value={bookData.condition}
+                onChange={(e) => setBookData(prev => ({ ...prev, condition: e.target.value }))}
+                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+              </select>
+              <input
+                type="number"
+                placeholder="Daily Rent (₹) *"
+                value={bookData.price}
+                onChange={(e) => setBookData(prev => ({ ...prev, price: e.target.value }))}
+                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
+                required
+                min="1"
+              />
+              <textarea
+                placeholder="Description (optional)"
+                value={bookData.description}
+                onChange={(e) => setBookData(prev => ({ ...prev, description: e.target.value }))}
+                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '80px', resize: 'vertical' }}
+              />
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddBook(false)}
+                  style={{
+                    padding: '12px 24px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    backgroundColor: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '12px 24px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    backgroundColor: '#2E7D32',
+                    color: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Add Book
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+          <h2 style={{ fontSize: "2rem", margin: 0, color: "#333" }}>
+            Available Books {userCommunity && `- ${userCommunity}`}
+          </h2>
+          {user && (
+            <button
+              onClick={() => setShowAddBook(true)}
+              style={{
+                backgroundColor: '#2E7D32',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              + Add Book
+            </button>
+          )}
+        </div>
+        
+        <div style={{ marginBottom: "30px" }}>
+          <input
+            type="text"
+            placeholder="Search books or authors..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: "100%",
+              maxWidth: "500px",
+              padding: "12px",
+              fontSize: "1rem",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+          />
+        </div>
+
+        {!user && (
+          <div style={{
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '4px',
+            padding: '15px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: 0, color: '#856404' }}>
+              📚 Showing books from Green Valley Society (Demo). Please{' '}
+              <button 
+                onClick={() => navigate('login')}
+                style={{ background: 'none', border: 'none', color: '#2E7D32', textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                login
+              </button>
+              {' '}to see books from your community.
+            </p>
+          </div>
+        )}
+
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", 
+          gap: "20px" 
+        }}>
+          {filteredBooks.map(book => (
+            <div key={book.id} style={{
+              border: "1px solid #ddd",
+              borderRadius: "8px",
+              padding: "20px",
+              backgroundColor: book.available ? "white" : "#f5f5f5"
+            }}>
+              <h3 style={{ color: "#333", marginBottom: "10px" }}>{book.title}</h3>
+              <p style={{ color: "#666", marginBottom: "8px" }}>by {book.author}</p>
+              <p style={{ color: "#666", marginBottom: "8px", fontSize: "0.9rem" }}>Owner: {book.owner}</p>
+              <p style={{ color: "#666", marginBottom: "8px", fontSize: "0.9rem" }}>Community: {book.community}</p>
+              {book.isbn && <p style={{ color: "#666", marginBottom: "10px", fontSize: "0.8rem" }}>ISBN: {book.isbn}</p>}
+              <p style={{ color: "#2E7D32", fontWeight: "bold", marginBottom: "15px" }}>{book.price}</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{
+                  color: book.available ? "#2E7D32" : "#d32f2f",
+                  fontWeight: "bold"
+                }}>
+                  {book.available ? "✅ Available" : "❌ Borrowed"}
+                </span>
+                <button
+                  onClick={() => {
+                    if (user) {
+                      alert(`Request sent for "${book.title}"!`);
+                    } else {
+                      navigate("login");
+                    }
+                  }}
+                  style={{
+                    backgroundColor: book.available ? "#2E7D32" : "#ccc",
+                    color: "white",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "4px",
+                    cursor: book.available ? "pointer" : "not-allowed",
+                    fontSize: "0.9rem"
+                  }}
+                  disabled={!book.available}
+                >
+                  {book.available ? "Request Book" : "Not Available"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {filteredBooks.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+            <p>No books found matching your search criteria.</p>
+          </div>
+        )}
+
+        {showAddBook && <AddBookForm />}
+      </div>
+    );
+  };
+
+  const DashboardPage = () => {
+    const [showMyBooks, setShowMyBooks] = useState(false);
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otpAction, setOtpAction] = useState(null);
+    const [otpData, setOtpData] = useState(null);
+    const [otp, setOtp] = useState('');
+
+    if (!user) {
+      return (
+        <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
+          <h2>Access Restricted</h2>
+          <p>Please log in to view your dashboard.</p>
+          <button 
+            onClick={() => navigate("login")}
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "12px 24px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "1rem"
+            }}
+          >
+            Go to Login
+          </button>
+        </div>
+      );
+    }
+
+    // Combine sample books with user's added books
+    const sampleBooks = [
+      { id: 'sample1', title: "Wings of Fire", author: "A.P.J. Abdul Kalam", status: "available", borrower: null, price: "₹35/day", earnings: "₹140", dateAdded: "15/08/2025" },
+      { id: 'sample2', title: "Gitanjali", author: "Rabindranath Tagore", status: "borrowed", borrower: "Raj K.", price: "₹30/day", earnings: "₹90", dateAdded: "10/08/2025" },
+    ];
+
+    const allMyBooks = [...sampleBooks, ...userBooks];
+
+    const handleOtpVerification = () => {
+      if (otp === '1234') {
+        if (otpAction === 'delete') {
+          setUserBooks(prev => prev.filter(book => book.id !== otpData.bookId));
+          alert(`${otpData.bookTitle} removed from collection`);
+        } else if (otpAction === 'wallet') {
+          alert("Wallet transaction completed successfully!");
+        }
+        setShowOtpModal(false);
+        setOtp('');
+        setOtpAction(null);
+        setOtpData(null);
+      } else {
+        alert('Invalid OTP! Please try again. (Use 1234 for demo)');
+      }
+    };
+
+    const requestOtpAction = (action, data) => {
+      setOtpAction(action);
+      setOtpData(data);
+      setShowOtpModal(true);
+      alert('OTP sent to your mobile number for security verification!');
+    };
+
+    const OtpModal = () => (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px',
+          borderRadius: '8px',
+          maxWidth: '400px',
+          width: '90%'
+        }}>
+          <h3 style={{ margin: '0 0 20px 0', color: '#333', textAlign: 'center' }}>
+            Security Verification Required
+          </h3>
+          <p style={{ textAlign: 'center', marginBottom: '20px', color: '#666' }}>
+            OTP sent to {user.mobile || '+91XXXXXXXXXX'}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input
+              type="text"
+              placeholder="Enter 6-digit OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              style={{
+                padding: '12px',
+                fontSize: '1.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                textAlign: 'center',
+                letterSpacing: '2px'
+              }}
+              maxLength="6"
+            />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  setShowOtpModal(false);
+                  setOtp('');
+                  setOtpAction(null);
+                  setOtpData(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOtpVerification}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: '#2E7D32',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Verify
+              </button>
+            </div>
+          </div>
+          <div style={{
+            backgroundColor: '#e8f5e8',
+            border: '1px solid #2E7D32',
+            borderRadius: '4px',
+            padding: '10px',
+            marginTop: '15px',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#2E7D32' }}>
+              <strong>Demo:</strong> Use OTP <strong>1234</strong> to verify
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+
+    const MyBooksModal = () => (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px',
+          borderRadius: '8px',
+          maxWidth: '800px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, color: '#333' }}>My Books Collection</h3>
+            <button
+              onClick={() => setShowMyBooks(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ display: 'grid', gap: '15px' }}>
+            {allMyBooks.map(book => (
+              <div key={book.id} style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                backgroundColor: book.status === 'available' ? '#f8fff8' : '#fff8f0'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{book.title}</h4>
+                    <p style={{ margin: '0 0 5px 0', color: '#666' }}>by {book.author}</p>
+                    <p style={{ margin: '0 0 5px 0', color: '#2E7D32', fontWeight: 'bold' }}>{book.price}</p>
+                    <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#999' }}>Added: {book.dateAdded}</p>
+                    <p style={{ margin: '0', fontSize: '0.9rem', color: book.status === 'available' ? '#2E7D32' : '#FF9800' }}>
+                      {book.status === 'available' ? '✅ Available' : `📚 Borrowed by ${book.borrower}`}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>Total Earned</p>
+                    <p style={{ margin: '0', color: '#2E7D32', fontWeight: 'bold', fontSize: '1.1rem' }}>{book.earnings}</p>
+                  </div>
+                </div>
+                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => alert(`Editing ${book.title}...`)}
+                    style={{
+                      backgroundColor: '#2196F3',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newStatus = book.status === 'available' ? 'unavailable' : 'available';
+                      if (book.id.toString().startsWith('sample')) {
+                        alert(`${book.title} marked as ${newStatus}`);
+                      } else {
+                        setUserBooks(prev => prev.map(b => 
+                          b.id === book.id ? { ...b, status: newStatus } : b
+                        ));
+                      }
+                    }}
+                    style={{
+                      backgroundColor: book.status === 'available' ? '#FF9800' : '#2E7D32',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    {book.status === 'available' ? 'Mark Unavailable' : 'Mark Available'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (book.id.toString().startsWith('sample')) {
+                        alert('Cannot delete sample books. Add your own books to manage them.');
+                      } else {
+                        requestOtpAction('delete', { bookId: book.id, bookTitle: book.title });
+                      }
+                    }}
+                    style={{
+                      backgroundColor: '#d32f2f',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+        <h2 style={{ fontSize: "2rem", marginBottom: "30px", color: "#333" }}>
+          Dashboard - Welcome {user.name}!
+        </h2>
+        
+        {userCommunity && (
+          <div style={{
+            backgroundColor: '#e8f5e8',
+            border: '1px solid #2E7D32',
+            borderRadius: '8px',
+            padding: '15px',
+            marginBottom: '30px'
+          }}>
+            <p style={{ margin: 0, color: '#2E7D32', fontWeight: 'bold' }}>
+              🏘️ Community: {userCommunity}
+            </p>
+          </div>
+        )}
+        
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", 
+          gap: "20px", 
+          marginBottom: "40px" 
+        }}>
+          <div style={{ 
+            padding: "20px", 
+            backgroundColor: "#E8F5E8", 
+            borderRadius: "8px", 
+            border: "1px solid #2E7D32" 
+          }}>
+            <h3 style={{ color: "#2E7D32", marginBottom: "15px" }}>📚 My Books</h3>
+            <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>{allMyBooks.length} Listed</p>
+            <p style={{ color: "#666" }}>{allMyBooks.filter(book => book.status === 'borrowed').length} Currently Borrowed</p>
+            <button
+              onClick={() => setShowMyBooks(true)}
+              style={{
+                backgroundColor: '#2E7D32',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                marginTop: '10px'
+              }}
+            >
+              Manage Books
+            </button>
+          </div>
+          <div style={{ 
+            padding: "20px", 
+            backgroundColor: "#FFF3E0", 
+            borderRadius: "8px", 
+            border: "1px solid #FF9800" 
+          }}>
+            <h3 style={{ color: "#FF9800", marginBottom: "15px" }}>📖 Borrowed</h3>
+            <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>2 Books</p>
+            <p style={{ color: "#666" }}>1 Due Tomorrow</p>
+          </div>
+          <div style={{ 
+            padding: "20px", 
+            backgroundColor: "#E3F2FD", 
+            borderRadius: "8px", 
+            border: "1px solid #2196F3" 
+          }}>
+            <h3 style={{ color: "#2196F3", marginBottom: "15px" }}>💰 Wallet</h3>
+            <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>₹1,245.50</p>
+            <p style={{ color: "#666" }}>Available Balance</p>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "30px" }}>
+          <div>
+            <h3 style={{ marginBottom: "20px", color: "#333" }}>Recent Activity</h3>
+            <div style={{ backgroundColor: "white", border: "1px solid #ddd", borderRadius: "8px", padding: "20px" }}>
+              <div style={{ borderBottom: "1px solid #eee", paddingBottom: "10px", marginBottom: "10px" }}>
+                <p><strong>Book Request:</strong> "1984" requested by Sarah M.</p>
+                <p style={{ color: "#666", fontSize: "0.9rem" }}>2 hours ago</p>
+              </div>
+              <div style={{ borderBottom: "1px solid #eee", paddingBottom: "10px", marginBottom: "10px" }}>
+                <p><strong>Payment Received:</strong> ₹90.00 for "Pride and Prejudice"</p>
+                <p style={{ color: "#666", fontSize: "0.9rem" }}>1 day ago</p>
+              </div>
+              <div>
+                <p><strong>Book Returned:</strong> "The Great Gatsby" returned by Mike R.</p>
+                <p style={{ color: "#666", fontSize: "0.9rem" }}>2 days ago</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 style={{ marginBottom: "20px", color: "#333" }}>Quick Actions</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button
+                onClick={() => navigate("books")}
+                style={{
+                  backgroundColor: "#2E7D32",
+                  color: "white",
+                  border: "none",
+                  padding: "12px",
+                  borderRadius: "4px",
+                  cursor: "pointer"
+                }}
+              >
+                Add New Book
+              </button>
+              <button
+                onClick={() => requestOtpAction('wallet', { action: 'manage' })}
+                style={{
+                  backgroundColor: "#2196F3",
+                  color: "white",
+                  border: "none",
+                  padding: "12px",
+                  borderRadius: "4px",
+                  cursor: "pointer"
+                }}
+              >
+                Manage Wallet (Requires OTP)
+              </button>
+              <button
+                onClick={() => alert("Profile editing coming soon!")}
+                style={{
+                  backgroundColor: "#FF9800",
+                  color: "white",
+                  border: "none",
+                  padding: "12px",
+                  borderRadius: "4px",
+                  cursor: "pointer"
+                }}
+              >
+                Edit Profile
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showMyBooks && <MyBooksModal />}
+        {showOtpModal && <OtpModal />}
+      </div>
+    );
+  };
+
+  const LoginPage = () => {
+    const [formData, setFormData] = useState({ emailOrUsername: '', password: '', mobile: '' });
+    const [loginMethod, setLoginMethod] = useState('standard'); // 'standard' or 'mobile'
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      
+      // Simulate login and community detection
+      const userData = { 
+        name: formData.emailOrUsername.includes('@') ? formData.emailOrUsername.split('@')[0] : formData.emailOrUsername, 
+        email: formData.emailOrUsername.includes('@') ? formData.emailOrUsername : `${formData.emailOrUsername}@example.com`,
+        mobile: formData.mobile 
+      };
+      
+      // Simulate community assignment based on email domain or username
+      let community = "Green Valley Society";
+      if (formData.emailOrUsername.includes('sunset') || formData.emailOrUsername === 'sunset_user') {
+        community = "Sunset Apartments";
+      } else if (formData.emailOrUsername.includes('metro') || formData.emailOrUsername === 'metro_user') {
+        community = "Metro Heights";
+      }
+      
+      setUser(userData);
+      setUserCommunity(community);
+      alert(`Login successful! Welcome to ${community}`);
+      navigate('dashboard');
+    };
+
+    return (
+      <div style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
+        <h2 style={{ textAlign: "center", marginBottom: "30px", color: "#333" }}>Login</h2>
+        
+        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+          <div style={{ 
+            display: 'inline-flex', 
+            backgroundColor: '#f0f0f0', 
+            borderRadius: '4px', 
+            padding: '2px' 
+          }}>
+            <button
+              type="button"
+              onClick={() => setLoginMethod('standard')}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: loginMethod === 'standard' ? '#2E7D32' : 'transparent',
+                color: loginMethod === 'standard' ? 'white' : '#666',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              Username/Email
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginMethod('mobile')}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: loginMethod === 'mobile' ? '#2E7D32' : 'transparent',
+                color: loginMethod === 'mobile' ? 'white' : '#666',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              Mobile + OTP
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <input
+            type="text"
+            placeholder={loginMethod === 'standard' ? "Username or Email" : "Email"}
+            value={formData.emailOrUsername}
+            onChange={(e) => setFormData(prev => ({ ...prev, emailOrUsername: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          
+          {loginMethod === 'mobile' && (
+            <input
+              type="tel"
+              placeholder="Mobile Number (+91XXXXXXXXXX)"
+              value={formData.mobile}
+              onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value }))}
+              style={{ 
+                padding: "12px", 
+                fontSize: "1rem", 
+                border: "1px solid #ddd", 
+                borderRadius: "4px",
+                boxSizing: "border-box"
+              }}
+              required
+            />
+          )}
+          
+          <input
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          
+          <button
+            type="submit"
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "12px",
+              fontSize: "1rem",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+          >
+            {loginMethod === 'standard' ? 'Login' : 'Send OTP & Login'}
+          </button>
+        </form>
+        
+        {loginMethod === 'standard' && (
+          <div style={{
+            backgroundColor: '#e8f5e8',
+            border: '1px solid #2E7D32',
+            borderRadius: '4px',
+            padding: '10px',
+            marginTop: '20px',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#2E7D32' }}>
+              <strong>Demo accounts:</strong><br/>
+              Username: <strong>john_doe</strong> → Green Valley Society<br/>
+              Username: <strong>sunset_user</strong> → Sunset Apartments<br/>
+              Password: <strong>any</strong>
+            </p>
+          </div>
+        )}
+        
+        <p style={{ textAlign: "center", marginTop: "20px" }}>
+          Don't have an account? 
+          <button 
+            onClick={() => navigate('register')}
+            style={{ 
+              background: "none", 
+              border: "none", 
+              color: "#2E7D32", 
+              cursor: "pointer", 
+              textDecoration: "underline",
+              marginLeft: "5px"
+            }}
+          >
+            Register here
+          </button>
+        </p>
+      </div>
+    );
+  };
+
+  const RegisterPage = () => {
+    const [formData, setFormData] = useState({
+      fullName: '',
+      email: '',
+      mobile: '',
+      community: '',
+      password: '',
+      confirmPassword: ''
+    });
+
+    const communities = [
+      'Green Valley Society',
+      'Sunset Apartments',
+      'Metro Heights',
+      'Garden View Complex',
+      'Royal Residency',
+      'Other'
+    ];
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      if (formData.password !== formData.confirmPassword) {
+        alert('Passwords do not match!');
+        return;
+      }
+      
+      // Simulate registration
+      setUser({ name: formData.fullName, email: formData.email, mobile: formData.mobile });
+      setUserCommunity(formData.community);
+      alert(`Registration successful! Welcome to ${formData.community}`);
+      navigate('dashboard');
+    };
+
+    return (
+      <div style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
+        <h2 style={{ textAlign: "center", marginBottom: "30px", color: "#333" }}>Join Community Library</h2>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={formData.fullName}
+            onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          <input
+            type="tel"
+            placeholder="Mobile Number (+91XXXXXXXXXX)"
+            value={formData.mobile}
+            onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          <select
+            value={formData.community}
+            onChange={(e) => setFormData(prev => ({ ...prev, community: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          >
+            <option value="">Select Your Community/Society</option>
+            {communities.map(community => (
+              <option key={community} value={community}>{community}</option>
+            ))}
+          </select>
+          <input
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            value={formData.confirmPassword}
+            onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+            style={{ 
+              padding: "12px", 
+              fontSize: "1rem", 
+              border: "1px solid #ddd", 
+              borderRadius: "4px",
+              boxSizing: "border-box"
+            }}
+            required
+          />
+          <button
+            type="submit"
+            style={{
+              backgroundColor: "#2E7D32",
+              color: "white",
+              border: "none",
+              padding: "12px",
+              fontSize: "1rem",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+          >
+            Create Account
+          </button>
+        </form>
+        <p style={{ textAlign: "center", marginTop: "20px" }}>
+          Already have an account? 
+          <button 
+            onClick={() => navigate('login')}
+            style={{ 
+              background: "none", 
+              border: "none", 
+              color: "#2E7D32", 
+              cursor: "pointer", 
+              textDecoration: "underline",
+              marginLeft: "5px"
+            }}
+          >
+            Login here
+          </button>
+        </p>
+      </div>
+    );
+  };
+
+  const renderCurrentPage = () => {
+    switch (currentPage) {
+      case "home":
+        return <HomePage />;
+      case "books":
+        return <BooksPage />;
+      case "dashboard":
+        return <DashboardPage />;
+      case "login":
+        return <LoginPage />;
+      case "register":
+        return <RegisterPage />;
+      default:
+        return <HomePage />;
+    }
+  };
+
+  return (
+    <div className="App">
+      <Header />
+      <main style={{ minHeight: "calc(100vh - 80px)", backgroundColor: "#f5f5f5" }}>
+        {renderCurrentPage()}
+      </main>
+    </div>
+  );
+};
+
+export default App;

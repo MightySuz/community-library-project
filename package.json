@@ -1,0 +1,42 @@
+{
+  "name": "community-library",
+  "version": "1.0.0",
+  "description": "Community Library app for lending and borrowing books",
+  "workspaces": [
+    "mobile",
+    "web",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=web",
+    "dev:mobile": "npm run start --workspace=mobile",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build:web": "npm run build --workspace=web",
+    "build:mobile": "npm run build --workspace=mobile",
+    "build:backend": "npm run build --workspace=backend",
+    "install:all": "npm install && npm install --workspace=mobile && npm install --workspace=web && npm install --workspace=backend && npm install --workspace=shared",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "keywords": [
+    "community",
+    "library",
+    "lending",
+    "books",
+    "react-native",
+    "react",
+    "nodejs"
+  ],
+  "author": "Community Library Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

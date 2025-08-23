@@ -1,0 +1,6 @@
+# VAPID Keys for Push Notifications
+VAPID_PUBLIC_KEY=BAIdonnIzQEPH2BWFcQdzqh0vKHxbRIMilgS0bsl3RUcyjBp_EKauQuOr7DXfAFT06_QREeOY-n7PhblqpjFAQo
+VAPID_PRIVATE_KEY=Rn8ys7W52bkGMm8i1z51pB01bxomzcUTbOtCCxxbtuw
+VAPID_EMAIL=mailto:support@communitylibrary.com
+
+# Add these to your existing .env file or create a new one

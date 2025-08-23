@@ -1,0 +1,89 @@
+﻿import React, { useState } from "react";
+
+const App = () => {
+  const [currentPage, setCurrentPage] = useState("home");
+
+  const navigate = (page) => {
+    setCurrentPage(page);
+  };
+
+  const Header = () => (
+    <header style={{
+      backgroundColor: "#2E7D32",
+      color: "white",
+      padding: "1rem 2rem",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}>
+      <h1 style={{ margin: 0, cursor: "pointer" }} onClick={() => navigate("home")}>
+        📚 Community Library
+      </h1>
+      <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+        <button 
+          onClick={() => navigate("home")}
+          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+        >
+          Home
+        </button>
+        <button 
+          onClick={() => navigate("books")}
+          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+        >
+          Books
+        </button>
+        <button 
+          onClick={() => navigate("dashboard")}
+          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+        >
+          Dashboard
+        </button>
+      </nav>
+    </header>
+  );
+
+  const HomePage = () => (
+    <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
+      <h2>Welcome to Community Library</h2>
+      <p>Your gateway to a world of books and knowledge sharing.</p>
+    </div>
+  );
+
+  const BooksPage = () => (
+    <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
+      <h2>Book Collection</h2>
+      <p>Browse our collection of books.</p>
+    </div>
+  );
+
+  const DashboardPage = () => (
+    <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
+      <h2>My Dashboard</h2>
+      <p>Manage your borrowed books and requests.</p>
+    </div>
+  );
+
+  const renderCurrentPage = () => {
+    switch (currentPage) {
+      case "home":
+        return <HomePage />;
+      case "books":
+        return <BooksPage />;
+      case "dashboard":
+        return <DashboardPage />;
+      default:
+        return <HomePage />;
+    }
+  };
+
+  return (
+    <div className="App">
+      <Header />
+      <main style={{ minHeight: "calc(100vh - 80px)", backgroundColor: "#f5f5f5" }}>
+        {renderCurrentPage()}
+      </main>
+    </div>
+  );
+};
+
+export default App;
