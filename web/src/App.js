@@ -229,6 +229,7 @@ const App = () => {
   const BooksPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddBook, setShowAddBook] = useState(false);
+    const [showBulkAdd, setShowBulkAdd] = useState(false);
     
     // Sample books data with community filtering
     const allBooks = [
@@ -259,8 +260,63 @@ const App = () => {
         isbn: '',
         condition: 'good',
         price: '',
-        description: ''
+        description: '',
+        imageUrl: ''
       });
+      const [isScanning, setIsScanning] = useState(false);
+      const [isLoadingBookData, setIsLoadingBookData] = useState(false);
+
+      // Function to fetch book data from Google Books API
+      const fetchBookFromGoogle = async (isbn) => {
+        try {
+          setIsLoadingBookData(true);
+          const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+          const data = await response.json();
+          
+          if (data.items && data.items.length > 0) {
+            const book = data.items[0].volumeInfo;
+            setBookData(prev => ({
+              ...prev,
+              title: book.title || '',
+              author: book.authors ? book.authors.join(', ') : '',
+              description: book.description || '',
+              imageUrl: book.imageLinks ? book.imageLinks.thumbnail : ''
+            }));
+            alert('Book information loaded successfully!');
+          } else {
+            alert('Book not found in Google Books database. Please enter details manually.');
+          }
+        } catch (error) {
+          console.error('Error fetching book data:', error);
+          alert('Error fetching book data. Please enter details manually.');
+        } finally {
+          setIsLoadingBookData(false);
+        }
+      };
+
+      // Function to handle ISBN input and auto-fetch
+      const handleISBNChange = (e) => {
+        const isbn = e.target.value;
+        setBookData(prev => ({ ...prev, isbn }));
+        
+        // Auto-fetch when ISBN is complete (10 or 13 digits)
+        if (isbn.length === 10 || isbn.length === 13) {
+          fetchBookFromGoogle(isbn);
+        }
+      };
+
+      // Simulated barcode scanner (in real app, you'd use a camera library)
+      const startBarcodeScanner = () => {
+        setIsScanning(true);
+        // Simulate scanning process
+        setTimeout(() => {
+          const mockISBN = '9780134685991'; // Example ISBN
+          setBookData(prev => ({ ...prev, isbn: mockISBN }));
+          fetchBookFromGoogle(mockISBN);
+          setIsScanning(false);
+          alert('Barcode scanned successfully! ISBN: ' + mockISBN);
+        }, 2000);
+      };
 
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -272,6 +328,7 @@ const App = () => {
           condition: bookData.condition,
           price: `₹${bookData.price}/day`,
           description: bookData.description,
+          imageUrl: bookData.imageUrl,
           owner: user.name,
           available: true,
           community: userCommunity,
@@ -284,7 +341,7 @@ const App = () => {
         
         alert(`Book "${bookData.title}" added successfully to your collection!`);
         setShowAddBook(false);
-        setBookData({ title: '', author: '', isbn: '', condition: 'good', price: '', description: '' });
+        setBookData({ title: '', author: '', isbn: '', condition: 'good', price: '', description: '', imageUrl: '' });
       };
 
       return (
@@ -333,6 +390,68 @@ const App = () => {
                 style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
                 required
               />
+              
+              {/* ISBN Section with Barcode Scanner */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <label style={{ fontWeight: 'bold', color: '#333' }}>ISBN & Book Information</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="ISBN (10 or 13 digits)"
+                    value={bookData.isbn}
+                    onChange={handleISBNChange}
+                    style={{ 
+                      padding: '12px', 
+                      border: '1px solid #ddd', 
+                      borderRadius: '4px',
+                      flex: 1
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={startBarcodeScanner}
+                    disabled={isScanning}
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: isScanning ? '#ccc' : '#2E7D32',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: isScanning ? 'not-allowed' : 'pointer',
+                      minWidth: '120px'
+                    }}
+                  >
+                    {isScanning ? '📷 Scanning...' : '📷 Scan ISBN'}
+                  </button>
+                </div>
+                {isLoadingBookData && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    color: '#2E7D32', 
+                    fontSize: '0.9rem',
+                    padding: '10px',
+                    backgroundColor: '#f0f8f0',
+                    borderRadius: '4px'
+                  }}>
+                    📚 Loading book information from Google Books...
+                  </div>
+                )}
+                {bookData.imageUrl && (
+                  <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                    <img 
+                      src={bookData.imageUrl} 
+                      alt={bookData.title}
+                      style={{ 
+                        maxWidth: '120px', 
+                        maxHeight: '180px', 
+                        borderRadius: '4px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <input
                 type="text"
                 placeholder="Author *"
@@ -340,13 +459,6 @@ const App = () => {
                 onChange={(e) => setBookData(prev => ({ ...prev, author: e.target.value }))}
                 style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
                 required
-              />
-              <input
-                type="text"
-                placeholder="ISBN (optional)"
-                value={bookData.isbn}
-                onChange={(e) => setBookData(prev => ({ ...prev, isbn: e.target.value }))}
-                style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }}
               />
               <select
                 value={bookData.condition}
@@ -407,6 +519,224 @@ const App = () => {
       );
     };
 
+    // Bulk Add Books Form Component
+    const BulkAddForm = () => {
+      const [bulkBooks, setBulkBooks] = useState('');
+      const [isProcessing, setIsProcessing] = useState(false);
+      const [processedBooks, setProcessedBooks] = useState([]);
+
+      const processBulkBooks = async () => {
+        setIsProcessing(true);
+        const bookLines = bulkBooks.split('\n').filter(line => line.trim());
+        const processed = [];
+
+        for (let line of bookLines) {
+          const parts = line.split(',').map(part => part.trim());
+          if (parts.length >= 2) {
+            const [title, author, isbn = '', price = '50'] = parts;
+            
+            let bookData = {
+              title,
+              author,
+              isbn,
+              price: price.replace(/[₹]/g, ''),
+              imageUrl: '',
+              condition: 'good',
+              description: ''
+            };
+
+            // Try to fetch from Google Books if ISBN is provided
+            if (isbn && (isbn.length === 10 || isbn.length === 13)) {
+              try {
+                const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                  const book = data.items[0].volumeInfo;
+                  bookData.imageUrl = book.imageLinks ? book.imageLinks.thumbnail : '';
+                  bookData.description = book.description || '';
+                }
+              } catch (error) {
+                console.error('Error fetching book data for ISBN:', isbn, error);
+              }
+            }
+
+            processed.push(bookData);
+          }
+        }
+        
+        setProcessedBooks(processed);
+        setIsProcessing(false);
+      };
+
+      const addAllBooks = () => {
+        const newBooks = processedBooks.map(bookData => ({
+          id: Date.now() + Math.random(), // Unique ID
+          title: bookData.title,
+          author: bookData.author,
+          isbn: bookData.isbn,
+          condition: bookData.condition,
+          price: `₹${bookData.price}/day`,
+          description: bookData.description,
+          imageUrl: bookData.imageUrl,
+          owner: user.name,
+          available: true,
+          community: userCommunity,
+          dateAdded: new Date().toLocaleDateString(),
+          earnings: '₹0'
+        }));
+        
+        setUserBooks(prev => [...prev, ...newBooks]);
+        alert(`Successfully added ${newBooks.length} books to your collection!`);
+        setShowBulkAdd(false);
+        setBulkBooks('');
+        setProcessedBooks([]);
+      };
+
+      return (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#333' }}>Bulk Add Books</h3>
+              <button
+                onClick={() => setShowBulkAdd(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ color: '#333', marginBottom: '10px' }}>Instructions:</h4>
+              <p style={{ color: '#666', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                Enter one book per line in the following format:<br/>
+                <strong>Title, Author, ISBN (optional), Price per day (optional)</strong><br/>
+                Example: "The Great Gatsby, F. Scott Fitzgerald, 9780743273565, 45"
+              </p>
+            </div>
+
+            <textarea
+              value={bulkBooks}
+              onChange={(e) => setBulkBooks(e.target.value)}
+              placeholder="Enter books (one per line):&#10;The Great Gatsby, F. Scott Fitzgerald, 9780743273565, 45&#10;To Kill a Mockingbird, Harper Lee, , 50&#10;1984, George Orwell, 9780451524935"
+              style={{
+                width: '100%',
+                height: '200px',
+                padding: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '0.9rem',
+                fontFamily: 'monospace',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <button
+                onClick={processBulkBooks}
+                disabled={!bulkBooks.trim() || isProcessing}
+                style={{
+                  backgroundColor: isProcessing ? '#ccc' : '#1976D2',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '4px',
+                  cursor: isProcessing ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                {isProcessing ? '🔄 Processing...' : '📖 Preview Books'}
+              </button>
+              
+              {processedBooks.length > 0 && (
+                <button
+                  onClick={addAllBooks}
+                  style={{
+                    backgroundColor: '#2E7D32',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '1rem'
+                  }}
+                >
+                  ✅ Add All ({processedBooks.length}) Books
+                </button>
+              )}
+            </div>
+
+            {processedBooks.length > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <h4 style={{ color: '#333' }}>Preview ({processedBooks.length} books):</h4>
+                <div style={{ 
+                  maxHeight: '300px', 
+                  overflow: 'auto', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px',
+                  padding: '10px'
+                }}>
+                  {processedBooks.map((book, index) => (
+                    <div key={index} style={{ 
+                      display: 'flex', 
+                      padding: '10px', 
+                      borderBottom: index < processedBooks.length - 1 ? '1px solid #eee' : 'none',
+                      alignItems: 'center',
+                      gap: '15px'
+                    }}>
+                      {book.imageUrl && (
+                        <img 
+                          src={book.imageUrl} 
+                          alt={book.title}
+                          style={{ 
+                            width: '40px', 
+                            height: '60px', 
+                            objectFit: 'cover',
+                            borderRadius: '2px'
+                          }}
+                        />
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <strong>{book.title}</strong> by {book.author}
+                        {book.isbn && <div style={{ fontSize: '0.8rem', color: '#666' }}>ISBN: {book.isbn}</div>}
+                        <div style={{ fontSize: '0.9rem', color: '#2E7D32' }}>₹{book.price}/day</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
     return (
       <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
@@ -414,20 +744,36 @@ const App = () => {
             Available Books {userCommunity && `- ${userCommunity}`}
           </h2>
           {user && (
-            <button
-              onClick={() => setShowAddBook(true)}
-              style={{
-                backgroundColor: '#2E7D32',
-                color: 'white',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              + Add Book
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowAddBook(true)}
+                style={{
+                  backgroundColor: '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                + Add Book
+              </button>
+              <button
+                onClick={() => setShowBulkAdd(true)}
+                style={{
+                  backgroundColor: '#1976D2',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                📚 Bulk Add
+              </button>
+            </div>
           )}
         </div>
         
@@ -481,15 +827,32 @@ const App = () => {
               border: "1px solid #ddd",
               borderRadius: "8px",
               padding: "20px",
-              backgroundColor: book.available ? "white" : "#f5f5f5"
+              backgroundColor: book.available ? "white" : "#f5f5f5",
+              display: "flex",
+              flexDirection: "column"
             }}>
+              {book.imageUrl && (
+                <div style={{ textAlign: "center", marginBottom: "15px" }}>
+                  <img 
+                    src={book.imageUrl} 
+                    alt={book.title}
+                    style={{ 
+                      maxWidth: "120px", 
+                      maxHeight: "180px", 
+                      borderRadius: "4px",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                      objectFit: "cover"
+                    }}
+                  />
+                </div>
+              )}
               <h3 style={{ color: "#333", marginBottom: "10px" }}>{book.title}</h3>
               <p style={{ color: "#666", marginBottom: "8px" }}>by {book.author}</p>
               <p style={{ color: "#666", marginBottom: "8px", fontSize: "0.9rem" }}>Owner: {book.owner}</p>
               <p style={{ color: "#666", marginBottom: "8px", fontSize: "0.9rem" }}>Community: {book.community}</p>
               {book.isbn && <p style={{ color: "#666", marginBottom: "10px", fontSize: "0.8rem" }}>ISBN: {book.isbn}</p>}
               <p style={{ color: "#2E7D32", fontWeight: "bold", marginBottom: "15px" }}>{book.price}</p>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
                 <span style={{
                   color: book.available ? "#2E7D32" : "#d32f2f",
                   fontWeight: "bold"
@@ -529,6 +892,7 @@ const App = () => {
         )}
 
         {showAddBook && <AddBookForm />}
+        {showBulkAdd && <BulkAddForm />}
       </div>
     );
   };
@@ -1138,6 +1502,8 @@ const App = () => {
       email: '',
       mobile: '',
       community: '',
+      blockNumber: '',
+      apartmentNumber: '',
       password: '',
       confirmPassword: ''
     });
@@ -1159,9 +1525,15 @@ const App = () => {
       }
       
       // Simulate registration
-      setUser({ name: formData.fullName, email: formData.email, mobile: formData.mobile });
+      setUser({ 
+        name: formData.fullName, 
+        email: formData.email, 
+        mobile: formData.mobile,
+        blockNumber: formData.blockNumber,
+        apartmentNumber: formData.apartmentNumber
+      });
       setUserCommunity(formData.community);
-      alert(`Registration successful! Welcome to ${formData.community}`);
+      alert(`Registration successful! Welcome to ${formData.community}, Block ${formData.blockNumber}, Apt ${formData.apartmentNumber}`);
       navigate('dashboard');
     };
 
@@ -1228,6 +1600,38 @@ const App = () => {
               <option key={community} value={community}>{community}</option>
             ))}
           </select>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <input
+              type="text"
+              placeholder="Block Number"
+              value={formData.blockNumber}
+              onChange={(e) => setFormData(prev => ({ ...prev, blockNumber: e.target.value }))}
+              style={{ 
+                padding: "12px", 
+                fontSize: "1rem", 
+                border: "1px solid #ddd", 
+                borderRadius: "4px",
+                boxSizing: "border-box",
+                flex: 1
+              }}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Apartment Number"
+              value={formData.apartmentNumber}
+              onChange={(e) => setFormData(prev => ({ ...prev, apartmentNumber: e.target.value }))}
+              style={{ 
+                padding: "12px", 
+                fontSize: "1rem", 
+                border: "1px solid #ddd", 
+                borderRadius: "4px",
+                boxSizing: "border-box",
+                flex: 1
+              }}
+              required
+            />
+          </div>
           <input
             type="password"
             placeholder="Password"
