@@ -77,13 +77,23 @@ const App = () => {
   };
   
   // Calculate rent for borrowed books
-  const calculateRent = (borrowDate, dailyRate = 10) => {
+  const calculateRent = (borrowDate, dailyRate = 10, maxRentalDays = 14) => {
     if (!borrowDate) return 0;
-    
     const startDate = new Date(borrowDate);
     const currentDate = new Date();
-    const days = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
-    return days * dailyRate;
+    const daysElapsed = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
+    const withinDays = Math.min(daysElapsed, maxRentalDays);
+    const base = withinDays * dailyRate;
+    const overdue = Math.max(0, daysElapsed - maxRentalDays);
+    if (overdue === 0) return base;
+    let penalty = 0;
+    const tier1 = Math.min(overdue, 5); // 25%
+    penalty += tier1 * dailyRate * 0.25;
+    const tier2 = Math.min(Math.max(overdue - 5, 0), 5); // next 5 at 50%
+    penalty += tier2 * dailyRate * 0.50;
+    const tier3 = Math.max(overdue - 10, 0); // remaining at 100%
+    penalty += tier3 * dailyRate * 1.00;
+    return Math.round((base + penalty) * 100) / 100; // round to 2 decimals
   };
 
   // Add book to current user's collection
@@ -99,7 +109,8 @@ const App = () => {
       dateAdded: new Date().toLocaleDateString(),
       earnings: '₹0',
       available: true,
-      dailyRate: bookData.dailyRate || 10,
+  dailyRate: Number(bookData.price) || 0,
+  maxRentalDays: bookData.maxRentalDays || 14,
       price: bookData.price || '₹10/day'
     };
 
@@ -632,8 +643,9 @@ const App = () => {
         isbn: '',
         condition: 'good',
         price: '',
-        description: '',
-        imageUrl: ''
+  maxRentalDays: 14,
+  description: '',
+  imageUrl: ''
       });
       const [isScanning, setIsScanning] = useState(false);
       const [isLoadingBookData, setIsLoadingBookData] = useState(false);
@@ -1286,10 +1298,23 @@ const App = () => {
           userData.books.forEach(book => {
             if (book.borrowerEmail === userEmail) {
               // Calculate current rent
-              const currentRent = calculateRent(book.borrowDate, book.dailyRate);
+              const currentRent = calculateRent(book.borrowDate, book.dailyRate, book.maxRentalDays || 14);
+              const borrowDate = new Date(book.borrowDate);
+              const dueDate = new Date(borrowDate.getTime() + (book.maxRentalDays || 14)*24*60*60*1000);
+              const today = new Date();
+              const daysLeft = Math.ceil((dueDate - today)/(1000*60*60*24));
+              const overdueDays = daysLeft < 0 ? Math.abs(daysLeft) : 0;
+              let penaltyMultiplier = 0;
+              if (overdueDays>0){
+                if (overdueDays <=5) penaltyMultiplier = 0.25; else if (overdueDays<=10) penaltyMultiplier = 0.50; else penaltyMultiplier = 1.00;
+              }
               borrowedBooks.push({
                 ...book,
-                currentRent
+                currentRent,
+                dueDate: dueDate.toISOString(),
+                daysLeft,
+                overdueDays,
+                penaltyMultiplier
               });
             }
           });
@@ -1659,11 +1684,25 @@ const App = () => {
           // Find the book details
           const book = allMyBooks.find(b => b.id == bookId);
           if (book) {
+            const currentRent = calculateRent(book.borrowDate, book.dailyRate, book.maxRentalDays || 14);
+            const borrowDate = new Date(book.borrowDate);
+            const dueDate = new Date(borrowDate.getTime() + (book.maxRentalDays || 14)*24*60*60*1000);
+            const today = new Date();
+            const daysLeft = Math.ceil((dueDate - today)/(1000*60*60*24));
+            const overdueDays = daysLeft < 0 ? Math.abs(daysLeft) : 0;
+            let penaltyMultiplier = 0;
+            if (overdueDays>0){
+              if (overdueDays <=5) penaltyMultiplier = 0.25; else if (overdueDays<=10) penaltyMultiplier = 0.50; else penaltyMultiplier = 1.00;
+            }
             borrowedBooks.push({
               ...request,
               bookId,
               book,
-              currentRent: calculateRent(book.borrowDate, book.dailyRate)
+              currentRent,
+              dueDate: dueDate.toISOString(),
+              daysLeft,
+              overdueDays,
+              penaltyMultiplier
             });
           }
         }
@@ -1813,10 +1852,19 @@ const App = () => {
                           <p style={{ margin: '0 0 5px 0', color: '#2E7D32', fontWeight: 'bold' }}>
                             Borrowed by: {borrowData.requesterName}
                           </p>
-                          <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#999' }}>
-                            Checkout on: {new Date(borrowData.checkoutDate).toLocaleDateString()}
+                          <p style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: '#555' }}>
+                            Checkout: {borrowData.borrowDate ? new Date(borrowData.borrowDate).toLocaleDateString(): '-'} | Due: {borrowData.dueDate ? new Date(borrowData.dueDate).toLocaleDateString(): '-'}
                           </p>
-                          <p style={{ margin: '0', fontSize: '0.9rem', fontWeight: 'bold', color: '#F44336' }}>
+                          {borrowData.daysLeft >= 0 ? (
+                            <p style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: borrowData.daysLeft <=2 ? '#FF9800':'#2E7D32', fontWeight: borrowData.daysLeft <=2 ? 'bold':'normal' }}>
+                              {borrowData.daysLeft} day(s) left
+                            </p>
+                          ) : (
+                            <p style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color:'#D32F2F', fontWeight:'bold' }}>
+                              Overdue by {borrowData.overdueDays} day(s) • Penalty rate {Math.round(borrowData.penaltyMultiplier*100)}%
+                            </p>
+                          )}
+                          <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', color: borrowData.overdueDays>0? '#D32F2F':'#333' }}>
                             Current Rent: ₹{borrowData.currentRent}
                           </p>
                         </div>
@@ -2646,29 +2694,28 @@ const App = () => {
                     if (book.borrowerEmail === userEmail) {
                       borrowedBooks.push({
                         ...book,
-                        currentRent: calculateRent(book.borrowDate, book.dailyRate || 10)
+                        currentRent: calculateRent(book.borrowDate, book.dailyRate || 10, book.maxRentalDays || 14),
+                        maxRentalDays: book.maxRentalDays || 14
                       });
                     }
                   });
                 }
               });
               
-              // Calculate upcoming dues
-              const dueTomorrow = borrowedBooks.filter(book => {
-                const rentDays = Math.ceil(calculateRent(book.borrowDate, book.dailyRate) / book.dailyRate);
-                const dueDate = new Date(book.borrowDate);
-                dueDate.setDate(dueDate.getDate() + rentDays + 1); // Check if due within next day
-                const today = new Date();
-                const diffTime = dueDate - today;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays <= 1 && diffDays >= 0;
+              // Calculate upcoming dues (<=2 days left to due)
+              const dueSoon = borrowedBooks.filter(book => {
+                if (!book.borrowDate) return false;
+                const borrowDate = new Date(book.borrowDate);
+                const dueDate = new Date(borrowDate.getTime() + book.maxRentalDays*24*60*60*1000);
+                const diffDays = Math.ceil((dueDate - new Date())/(1000*60*60*24));
+                return diffDays <= 2 && diffDays >= 0;
               }).length;
               
               const totalOwed = borrowedBooks.reduce((sum,b)=> sum + (b.currentRent||0),0);
               return (
                 <>
                   <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333", marginBottom:'6px' }}>{borrowedBooks.length} Books</p>
-                  <p style={{ color: "#666", margin:'4px 0' }}>{dueTomorrow} Due Soon</p>
+                  <p style={{ color: "#666", margin:'4px 0' }}>{dueSoon} Due Soon</p>
                   <p style={{ color:'#FF9800', fontWeight:'bold', margin:'4px 0' }}>Owed Now: ₹{totalOwed}</p>
                   <button
                     onClick={() => setShowBorrowedBooks(true)}
