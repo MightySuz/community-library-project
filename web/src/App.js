@@ -5,6 +5,14 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [userCommunity, setUserCommunity] = useState(null);
   const [allUsers, setAllUsers] = useState({}); // Store all users and their books
+  const [bookRequests, setBookRequests] = useState({}); // Store all book requests (indexed by ownerEmail -> bookId)
+  
+  // Define state for modals
+  const [showBorrowedBooks, setShowBorrowedBooks] = useState(false);
+  const [showAdminBooks, setShowAdminBooks] = useState(false);
+  const [showAdminUsers, setShowAdminUsers] = useState(false);
+  const [showAdminCommunities, setShowAdminCommunities] = useState(false);
+  const [showMyBooks, setShowMyBooks] = useState(false);
   
   // Load user data from localStorage on component mount
   useEffect(() => {
@@ -19,6 +27,12 @@ const App = () => {
       setUser(userData);
       setUserCommunity(userData.community);
     }
+    
+  // NOTE: Older versions used two different keys. Support both.
+  const savedBookRequests = localStorage.getItem('communityLibraryRequests') || localStorage.getItem('communityLibraryBookRequests');
+    if (savedBookRequests) {
+      setBookRequests(JSON.parse(savedBookRequests));
+    }
   }, []);
 
   // Save user data to localStorage whenever allUsers changes
@@ -27,6 +41,12 @@ const App = () => {
       localStorage.setItem('communityLibraryUsers', JSON.stringify(allUsers));
     }
   }, [allUsers]);
+  
+  // Save book requests to localStorage whenever bookRequests changes
+  useEffect(() => {
+    localStorage.setItem('communityLibraryRequests', JSON.stringify(bookRequests));
+    localStorage.setItem('communityLibraryBookRequests', JSON.stringify(bookRequests));
+  }, [bookRequests]);
 
   // Get current user's books
   const getCurrentUserBooks = () => {
@@ -46,6 +66,16 @@ const App = () => {
     });
     return communityBooks;
   };
+  
+  // Calculate rent for borrowed books
+  const calculateRent = (borrowDate, dailyRate = 10) => {
+    if (!borrowDate) return 0;
+    
+    const startDate = new Date(borrowDate);
+    const currentDate = new Date();
+    const days = Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24));
+    return days * dailyRate;
+  };
 
   // Add book to current user's collection
   const addBookToUser = (bookData) => {
@@ -59,7 +89,9 @@ const App = () => {
       community: userCommunity,
       dateAdded: new Date().toLocaleDateString(),
       earnings: '₹0',
-      available: true
+      available: true,
+      dailyRate: bookData.dailyRate || 10,
+      price: bookData.price || '₹10/day'
     };
 
     setAllUsers(prev => ({
@@ -69,53 +101,284 @@ const App = () => {
         books: [...(prev[user.email]?.books || []), newBook]
       }
     }));
+    
+    return newBook;
+  };
+  
+  // Request a book from another user
+  const requestBook = (book) => {
+    if (!user) {
+      alert('Please log in to request books');
+      navigate('login');
+      return false;
+    }
+    
+    // Check if book is available
+    if (!book.available) {
+      alert('Sorry, this book is not available for borrowing at the moment.');
+      return false;
+    }
+    
+    // Check if the user is requesting their own book
+    if (book.ownerEmail === user.email) {
+      alert('You cannot request your own book.');
+      return false;
+    }
+    
+    // Check if the user has already requested this book
+    if (bookRequests[book.ownerEmail] && 
+        bookRequests[book.ownerEmail][book.id] && 
+        bookRequests[book.ownerEmail][book.id].requesterEmail === user.email) {
+      alert('You have already requested this book.');
+      return false;
+    }
+    
+    // Create a new request
+    const newRequest = {
+      requesterName: user.name,
+      requesterEmail: user.email,
+      requestDate: new Date().toISOString(),
+      status: 'pending',
+      message: `Hello, I would like to borrow "${book.title}" by ${book.author}.`
+    };
+    
+    // Update bookRequests state
+    const updatedRequests = { ...bookRequests };
+    if (!updatedRequests[book.ownerEmail]) {
+      updatedRequests[book.ownerEmail] = {};
+    }
+    
+    updatedRequests[book.ownerEmail][book.id] = newRequest;
+    setBookRequests(updatedRequests);
+    
+  // Saved automatically by effect, but write once for immediate availability to other tabs
+  localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
+    
+    alert(`Request sent for "${book.title}". The owner will be notified.`);
+    return true;
+  };
+  
+  // Complete checkout for a book request
+  const completeCheckout = (bookId, requesterId) => {
+    if (!user || bookId == null || !requesterId) return false;
+    
+    // Get the current user's books
+    const userEmail = user.email;
+    const userBooks = allUsers[userEmail]?.books;
+    if (!userBooks) return false;
+    
+    // Find the book and update its status
+    const bookIndex = userBooks.findIndex(book => book.id === bookId);
+    if (bookIndex === -1) return false;
+    
+    // Get requester info from requests
+    const requesterRequest = bookRequests[userEmail]?.[bookId];
+    if (!requesterRequest) return false;
+    
+    // Update book status in user's collection
+    const updatedUserBooks = [...userBooks];
+    updatedUserBooks[bookIndex] = {
+      ...updatedUserBooks[bookIndex],
+      available: false,
+      status: 'borrowed',
+      borrower: requesterRequest.requesterName,
+      borrowerEmail: requesterRequest.requesterEmail,
+      borrowDate: new Date().toISOString(),
+      rentPerDay: updatedUserBooks[bookIndex].dailyRate || 10
+    };
+    
+    // Update allUsers state (use functional form then persist inside callback to avoid stale write)
+    setAllUsers(prev => {
+      const next = {
+        ...prev,
+        [userEmail]: {
+          ...prev[userEmail],
+          books: updatedUserBooks
+        }
+      };
+      localStorage.setItem('communityLibraryUsers', JSON.stringify(next));
+      return next;
+    });
+    
+    // Update request status
+    const updatedRequests = { ...bookRequests };
+    if (!updatedRequests[userEmail]) {
+      updatedRequests[userEmail] = {};
+    }
+    
+    updatedRequests[userEmail][bookId] = {
+      ...requesterRequest,
+      status: 'borrowed', // normalize status expected by UI sections
+      checkoutDate: new Date().toISOString(),
+      approvalDate: new Date().toISOString()
+    };
+    
+  setBookRequests(updatedRequests);
+  // Immediate persistence handled by effect
+    
+    alert(`Checkout completed for ${updatedUserBooks[bookIndex].title}. The borrower will be notified.`);
+    return true;
+  };
+  
+  // Complete return for a borrowed book
+  const completeReturn = (bookId) => {
+    if (!user || !bookId) return false;
+    
+    // Get the current user's books
+    const userEmail = user.email;
+    const userBooks = allUsers[userEmail]?.books;
+    if (!userBooks) return false;
+    
+    // Find the book and update its status
+    const bookIndex = userBooks.findIndex(book => book.id === bookId);
+    if (bookIndex === -1) return false;
+    
+    const book = userBooks[bookIndex];
+    if (!book.borrowerEmail) return false;
+    
+    // Calculate earnings from this rental
+    const rentalDays = calculateRent(book.borrowDate, book.dailyRate) / book.dailyRate;
+    const earnings = rentalDays * book.dailyRate;
+    const previousEarnings = parseInt(book.earnings.replace('₹', '')) || 0;
+    const totalEarnings = previousEarnings + earnings;
+    
+    // Update book status in user's collection
+    const updatedUserBooks = [...userBooks];
+    updatedUserBooks[bookIndex] = {
+      ...updatedUserBooks[bookIndex],
+      available: true,
+      status: 'available',
+      borrower: null,
+      borrowerEmail: null,
+      returnDate: new Date().toISOString(),
+      earnings: `₹${totalEarnings}`
+    };
+    
+    // Update allUsers state
+    setAllUsers(prev => ({
+      ...prev,
+      [userEmail]: {
+        ...prev[userEmail],
+        books: updatedUserBooks
+      }
+    }));
+    
+    // Update request status
+    const updatedRequests = { ...bookRequests };
+    if (updatedRequests[userEmail] && updatedRequests[userEmail][bookId]) {
+      updatedRequests[userEmail][bookId] = {
+        ...updatedRequests[userEmail][bookId],
+        status: 'completed',
+        returnDate: new Date().toISOString()
+      };
+      
+      setBookRequests(updatedRequests);
+    }
+    
+    return true;
   };
 
   const navigate = (page) => {
     setCurrentPage(page);
   };
 
-  const Header = () => (
-    <header style={{
-      backgroundColor: "#2E7D32",
-      color: "white",
-      padding: "1rem 2rem",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center"
-    }}>
-      <h1 style={{ margin: 0, cursor: "pointer" }} onClick={() => navigate("home")}>
-        📚 Community Library
-      </h1>
-      <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-        <button 
-          onClick={() => navigate("home")}
-          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
-        >
-          Home
-        </button>
-        <button 
-          onClick={() => navigate("books")}
-          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
-        >
-          Books
-        </button>
-        <button 
-          onClick={() => navigate("dashboard")}
-          style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
-        >
-          Dashboard
-        </button>
-        {user ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <span>Welcome, {user.name}!</span>
+  const Header = () => {
+    // Calculate number of pending requests for the current user
+    const getPendingRequestsCount = () => {
+      if (!user || !user.email) return 0;
+      
+      const userEmail = user.email;
+      const userRequests = bookRequests[userEmail] || {};
+      
+      let count = 0;
+      Object.values(userRequests).forEach(request => {
+        if (request.status === 'pending') {
+          count++;
+        }
+      });
+      
+      return count;
+    };
+    
+    const pendingCount = getPendingRequestsCount();
+    
+    return (
+      <header style={{
+        backgroundColor: "#2E7D32",
+        color: "white",
+        padding: "1rem 2rem",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}>
+        <h1 style={{ margin: 0, cursor: "pointer" }} onClick={() => navigate("home")}>
+          📚 Community Library
+        </h1>
+        <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+          <button 
+            onClick={() => navigate("home")}
+            style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+          >
+            Home
+          </button>
+          <button 
+            onClick={() => navigate("books")}
+            style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+          >
+            Books
+          </button>
+          <div style={{ position: 'relative' }}>
             <button 
-              onClick={() => { 
-                setUser(null); 
-                setUserCommunity(null);
-                localStorage.removeItem('communityLibraryCurrentUser');
-                navigate("home"); 
-              }}
+              onClick={() => navigate("dashboard")}
+              style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
+            >
+              Dashboard
+            </button>
+            {user && pendingCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-12px',
+                backgroundColor: '#FF9800',
+                color: 'white',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontSize: '0.8rem',
+                fontWeight: 'bold'
+              }}>
+                {pendingCount}
+              </span>
+            )}
+          </div>
+          {user ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <span>Welcome, {user.name}!</span>
+              <button 
+                onClick={() => { 
+                  setUser(null); 
+                  setUserCommunity(null);
+                  localStorage.removeItem('communityLibraryCurrentUser');
+                  navigate("home"); 
+                }}
+                style={{ 
+                  backgroundColor: "rgba(255,255,255,0.2)", 
+                  border: "1px solid white", 
+                  color: "white", 
+                  padding: "0.5rem 1rem",
+                  borderRadius: "4px",
+                  cursor: "pointer"
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => navigate("login")}
               style={{ 
                 backgroundColor: "rgba(255,255,255,0.2)", 
                 border: "1px solid white", 
@@ -125,27 +388,13 @@ const App = () => {
                 cursor: "pointer"
               }}
             >
-              Logout
+              Login
             </button>
-          </div>
-        ) : (
-          <button 
-            onClick={() => navigate("login")}
-            style={{ 
-              backgroundColor: "rgba(255,255,255,0.2)", 
-              border: "1px solid white", 
-              color: "white", 
-              padding: "0.5rem 1rem",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            Login
-          </button>
-        )}
-      </nav>
-    </header>
-  );
+          )}
+        </nav>
+      </header>
+    );
+  };
 
   const HomePage = () => (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
@@ -916,7 +1165,27 @@ const App = () => {
                 <button
                   onClick={() => {
                     if (user) {
-                      alert(`Request sent for "${book.title}"!`);
+                      // Don't allow users to request their own books
+                      if (book.ownerEmail === user.email) {
+                        alert("You can't request your own book. This is your book!");
+                        return;
+                      }
+                      
+                      // Check if the book is already borrowed
+                      if (!book.available) {
+                        alert("Sorry, this book is currently not available for borrowing.");
+                        return;
+                      }
+                      
+                      // Check if there's already a pending request for this book
+                      const existingRequest = bookRequests[book.ownerEmail]?.[book.id];
+                      if (existingRequest && existingRequest.requesterEmail === user.email && existingRequest.status === 'pending') {
+                        alert("You already have a pending request for this book.");
+                        return;
+                      }
+                      
+                      // Make the request
+                      requestBook(book);
                     } else {
                       navigate("login");
                     }
@@ -952,6 +1221,155 @@ const App = () => {
   };
 
   const DashboardPage = () => {
+    const BorrowedBooksModal = () => {
+      // Find books borrowed by the current user
+      const userEmail = user?.email;
+      const borrowedBooks = [];
+      
+      // Check all users' books to find ones borrowed by current user
+      Object.values(allUsers).forEach(userData => {
+        if (userData.books) {
+          userData.books.forEach(book => {
+            if (book.borrowerEmail === userEmail) {
+              // Calculate current rent
+              const currentRent = calculateRent(book.borrowDate, book.dailyRate);
+              borrowedBooks.push({
+                ...book,
+                currentRent
+              });
+            }
+          });
+        }
+      });
+      
+      return (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#333' }}>Books I've Borrowed</h3>
+              <button
+                onClick={() => setShowBorrowedBooks(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {borrowedBooks.length === 0 ? (
+              <div style={{ 
+                padding: '30px', 
+                textAlign: 'center', 
+                backgroundColor: '#f9f9f9', 
+                borderRadius: '8px' 
+              }}>
+                <p style={{ fontSize: '1.1rem', color: '#666' }}>You haven't borrowed any books yet.</p>
+                <button
+                  onClick={() => {
+                    setShowBorrowedBooks(false);
+                    navigate('books');
+                  }}
+                  style={{
+                    backgroundColor: '#2E7D32',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginTop: '15px'
+                  }}
+                >
+                  Browse Books to Borrow
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '20px' }}>
+                {borrowedBooks.map((book, index) => (
+                  <div key={index} style={{
+                    border: '1px solid #FF9800',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    backgroundColor: '#FFF8E1'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 8px 0', color: '#333' }}>{book.title}</h4>
+                        <p style={{ margin: '0 0 8px 0', color: '#666' }}>by {book.author}</p>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.9rem' }}>
+                          <span style={{ color: '#666' }}>Owner:</span> <span style={{ fontWeight: 'bold' }}>{book.owner}</span>
+                        </p>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.9rem' }}>
+                          <span style={{ color: '#666' }}>Borrowed on:</span> <span style={{ fontWeight: 'bold' }}>{new Date(book.borrowDate).toLocaleDateString()}</span>
+                        </p>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.9rem' }}>
+                          <span style={{ color: '#666' }}>Rate:</span> <span style={{ fontWeight: 'bold', color: '#2E7D32' }}>{book.price}</span>
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ 
+                          backgroundColor: '#FF9800', 
+                          color: 'white', 
+                          padding: '10px 15px', 
+                          borderRadius: '8px',
+                          marginBottom: '10px'
+                        }}>
+                          <p style={{ margin: '0 0 5px 0', fontSize: '0.8rem' }}>CURRENT DUE</p>
+                          <p style={{ margin: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>₹{book.currentRent}</p>
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: '#666', margin: '0' }}>
+                          {Math.ceil(book.currentRent / book.dailyRate)} days × ₹{book.dailyRate}/day
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <div style={{ 
+                  backgroundColor: '#E8F5E9', 
+                  padding: '15px', 
+                  borderRadius: '8px',
+                  border: '1px solid #2E7D32',
+                  marginTop: '20px'
+                }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#2E7D32' }}>Payment Instructions</h4>
+                  <p style={{ fontSize: '0.9rem', margin: '0 0 8px 0' }}>
+                    Please pay the rent amount directly to the book owner when returning the book.
+                  </p>
+                  <p style={{ fontSize: '0.9rem', margin: '0' }}>
+                    <strong>Note:</strong> The rent continues to accumulate until the book is marked as returned by the owner.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+    
     const [showMyBooks, setShowMyBooks] = useState(false);
     const [showOtpModal, setShowOtpModal] = useState(false);
     const [otpAction, setOtpAction] = useState(null);
@@ -960,6 +1378,14 @@ const App = () => {
     const [showAdminUsers, setShowAdminUsers] = useState(false);
     const [showAdminBooks, setShowAdminBooks] = useState(false);
     const [showAdminCommunities, setShowAdminCommunities] = useState(false);
+    const [showEditProfile, setShowEditProfile] = useState(false);
+    const [editProfileData, setEditProfileData] = useState({
+      name: user?.name || '',
+      email: user?.email || '',
+      mobile: user?.mobile || '',
+      block: user?.block || '',
+      apartment: user?.apartment || ''
+    });
 
     // Get books data for admin - combining sample books and user books
     const sampleBooks = [
@@ -1028,6 +1454,10 @@ const App = () => {
           alert(`${otpData.bookTitle} removed from collection`);
         } else if (otpAction === 'wallet') {
           alert("Wallet transaction completed successfully!");
+        } else if (typeof otpAction === 'function') {
+          // Execute the function (for profile updates)
+          otpAction();
+          return; // Return early as the function handles its own cleanup
         }
         setShowOtpModal(false);
         setOtp('');
@@ -1086,6 +1516,8 @@ const App = () => {
                 letterSpacing: '2px'
               }}
               maxLength="6"
+              autoFocus
+              onFocus={(e) => e.target.select()}
             />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
@@ -1131,144 +1563,339 @@ const App = () => {
             textAlign: 'center'
           }}>
             <p style={{ margin: 0, fontSize: '0.9rem', color: '#2E7D32' }}>
-              <strong>Demo:</strong> Use OTP <strong>1234</strong> to verify
+              <strong>Demo:</strong> Use OTP <strong>123456</strong> to verify
             </p>
           </div>
         </div>
       </div>
     );
 
-    const MyBooksModal = () => (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000
-      }}>
+    const MyBooksModal = () => {
+      // Get book requests for current user's books
+      const userEmail = user?.email;
+      const userRequests = bookRequests[userEmail] || {};
+      
+      // Filter for pending requests
+      const pendingRequests = [];
+      Object.entries(userRequests).forEach(([bookId, request]) => {
+        if (request.status === 'pending') {
+          // Find the book details
+          const book = allMyBooks.find(b => b.id == bookId);
+          if (book) {
+            pendingRequests.push({
+              ...request,
+              bookId,
+              book
+            });
+          }
+        }
+      });
+      
+      // Filter for borrowed books
+      const borrowedBooks = [];
+      Object.entries(userRequests).forEach(([bookId, request]) => {
+        if (request.status === 'borrowed') {
+          // Find the book details
+          const book = allMyBooks.find(b => b.id == bookId);
+          if (book) {
+            borrowedBooks.push({
+              ...request,
+              bookId,
+              book,
+              currentRent: calculateRent(book.borrowDate, book.dailyRate)
+            });
+          }
+        }
+      });
+      
+      return (
         <div style={{
-          backgroundColor: 'white',
-          padding: '30px',
-          borderRadius: '8px',
-          maxWidth: '800px',
-          width: '90%',
-          maxHeight: '80vh',
-          overflow: 'auto'
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 style={{ margin: 0, color: '#333' }}>My Books Collection</h3>
-            <button
-              onClick={() => setShowMyBooks(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666'
-              }}
-            >
-              ×
-            </button>
-          </div>
-          <div style={{ display: 'grid', gap: '15px' }}>
-            {allMyBooks.map(book => (
-              <div key={book.id} style={{
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                padding: '15px',
-                backgroundColor: book.status === 'available' ? '#f8fff8' : '#fff8f0'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{book.title}</h4>
-                    <p style={{ margin: '0 0 5px 0', color: '#666' }}>by {book.author}</p>
-                    <p style={{ margin: '0 0 5px 0', color: '#2E7D32', fontWeight: 'bold' }}>{book.price}</p>
-                    <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#999' }}>Added: {book.dateAdded}</p>
-                    <p style={{ margin: '0', fontSize: '0.9rem', color: book.status === 'available' ? '#2E7D32' : '#FF9800' }}>
-                      {book.status === 'available' ? '✅ Available' : `📚 Borrowed by ${book.borrower}`}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>Total Earned</p>
-                    <p style={{ margin: '0', color: '#2E7D32', fontWeight: 'bold', fontSize: '1.1rem' }}>{book.earnings}</p>
-                  </div>
-                </div>
-                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={() => alert(`Editing ${book.title}...`)}
-                    style={{
-                      backgroundColor: '#2196F3',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      const newStatus = book.status === 'available' ? 'unavailable' : 'available';
-                      if (book.id.toString().startsWith('sample')) {
-                        alert(`${book.title} marked as ${newStatus}`);
-                      } else {
-                        setAllUsers(prev => ({
-                          ...prev,
-                          [user.email]: {
-                            ...prev[user.email],
-                            books: prev[user.email].books.map(b => 
-                              b.id === book.id ? { ...b, status: newStatus } : b
-                            )
-                          }
-                        }));
-                      }
-                    }}
-                    style={{
-                      backgroundColor: book.status === 'available' ? '#FF9800' : '#2E7D32',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    {book.status === 'available' ? 'Mark Unavailable' : 'Mark Available'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (book.id.toString().startsWith('sample')) {
-                        alert('Cannot delete sample books. Add your own books to manage them.');
-                      } else {
-                        requestOtpAction('delete', { bookId: book.id, bookTitle: book.title });
-                      }
-                    }}
-                    style={{
-                      backgroundColor: '#d32f2f',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    Remove
-                  </button>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#333' }}>My Books Collection</h3>
+              <button
+                onClick={() => setShowMyBooks(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {pendingRequests.length > 0 && (
+              <div style={{ marginBottom: '30px' }}>
+                <h4 style={{ borderBottom: '2px solid #FF9800', paddingBottom: '8px', color: '#FF9800' }}>
+                  Book Requests Received ({pendingRequests.length})
+                </h4>
+                
+                <div style={{ display: 'grid', gap: '15px', marginTop: '15px' }}>
+                  {pendingRequests.map((requestData, index) => (
+                    <div key={index} style={{ 
+                      border: '1px solid #FF9800', 
+                      borderRadius: '8px', 
+                      padding: '15px',
+                      backgroundColor: '#FFF8E1'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{requestData.book?.title}</h4>
+                          <p style={{ margin: '0 0 5px 0', color: '#666' }}>by {requestData.book?.author}</p>
+                          <p style={{ margin: '0 0 5px 0', color: '#FF9800', fontWeight: 'bold' }}>
+                            Requested by: {requestData.requesterName}
+                          </p>
+                          <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#999' }}>
+                            Requested on: {new Date(requestData.requestDate).toLocaleDateString()}
+                          </p>
+                          <p style={{ margin: '0', fontSize: '0.9rem', color: '#666' }}>
+                            Message: {requestData.message || 'No message provided'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={() => {
+                              const success = completeCheckout(requestData.bookId, requestData.requesterEmail);
+                            if (success) {
+                              alert(`Checkout complete! "${requestData.book.title}" is now borrowed by ${requestData.requesterName}.`);
+                            } else {
+                              alert('Error processing checkout. Please try again.');
+                            }
+                          }}
+                          style={{
+                            backgroundColor: '#FF9800',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 15px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Complete Checkout
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            // Reject request logic
+                            const updatedRequests = { ...bookRequests };
+                            updatedRequests[userEmail][requestData.bookId] = {
+                              ...requestData,
+                              status: 'rejected',
+                              responseDate: new Date().toISOString()
+                            };
+                            setBookRequests(updatedRequests);
+                            alert(`Request for "${requestData.book.title}" was rejected.`);
+                          }}
+                          style={{
+                            backgroundColor: '#F44336',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 15px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          Reject Request
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+            
+            {borrowedBooks.length > 0 && (
+              <div style={{ marginBottom: '30px' }}>
+                <h4 style={{ borderBottom: '2px solid #2E7D32', paddingBottom: '8px', color: '#2E7D32' }}>
+                  Books Currently Borrowed ({borrowedBooks.length})
+                </h4>
+                
+                <div style={{ display: 'grid', gap: '15px', marginTop: '15px' }}>
+                  {borrowedBooks.map((borrowData, index) => (
+                    <div key={index} style={{ 
+                      border: '1px solid #2E7D32', 
+                      borderRadius: '8px', 
+                      padding: '15px',
+                      backgroundColor: '#E8F5E9'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{borrowData.book?.title}</h4>
+                          <p style={{ margin: '0 0 5px 0', color: '#666' }}>by {borrowData.book?.author}</p>
+                          <p style={{ margin: '0 0 5px 0', color: '#2E7D32', fontWeight: 'bold' }}>
+                            Borrowed by: {borrowData.requesterName}
+                          </p>
+                          <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#999' }}>
+                            Checkout on: {new Date(borrowData.checkoutDate).toLocaleDateString()}
+                          </p>
+                          <p style={{ margin: '0', fontSize: '0.9rem', fontWeight: 'bold', color: '#F44336' }}>
+                            Current Rent: ₹{borrowData.currentRent}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={() => {
+                            const confirmReturn = window.confirm(
+                              `Mark "${borrowData.book.title}" as returned by ${borrowData.requesterName}?\n\n` +
+                              "IMPORTANT: Only click 'OK' when:\n" +
+                              "1. The borrower has physically returned the book\n" +
+                              "2. You have verified the book's condition\n" +
+                              "3. You have collected any applicable rent: ₹" + borrowData.currentRent
+                            );
+                            
+                            if (confirmReturn) {
+                              const success = completeReturn(borrowData.bookId);
+                              if (success) {
+                                alert(`Return complete! "${borrowData.book.title}" is now available again. Earnings added to your account.`);
+                              } else {
+                                alert('Error processing return. Please try again.');
+                              }
+                            }
+                          }}
+                          style={{
+                            backgroundColor: '#2E7D32',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 15px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Complete Return
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {allMyBooks.map(book => (
+                <div key={book.id} style={{
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  backgroundColor: book.status === 'available' ? '#f8fff8' : '#fff8f0'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{book.title}</h4>
+                      <p style={{ margin: '0 0 5px 0', color: '#666' }}>by {book.author}</p>
+                      <p style={{ margin: '0 0 5px 0', color: '#2E7D32', fontWeight: 'bold' }}>{book.price}</p>
+                      <p style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: '#999' }}>Added: {book.dateAdded}</p>
+                      <p style={{ margin: '0', fontSize: '0.9rem', color: book.status === 'available' ? '#2E7D32' : '#FF9800' }}>
+                        {book.status === 'available' ? '✅ Available' : `📚 Borrowed by ${book.borrower}`}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem' }}>Total Earned</p>
+                      <p style={{ margin: '0', color: '#2E7D32', fontWeight: 'bold', fontSize: '1.1rem' }}>{book.earnings}</p>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => alert(`Editing ${book.title}...`)}
+                      style={{
+                        backgroundColor: '#2196F3',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newStatus = book.status === 'available' ? 'unavailable' : 'available';
+                        if (book.id.toString().startsWith('sample')) {
+                          alert(`${book.title} marked as ${newStatus}`);
+                        } else {
+                          setAllUsers(prev => ({
+                            ...prev,
+                            [user.email]: {
+                              ...prev[user.email],
+                              books: prev[user.email].books.map(b => 
+                                b.id === book.id ? { ...b, status: newStatus } : b
+                              )
+                            }
+                          }));
+                        }
+                      }}
+                      style={{
+                        backgroundColor: book.status === 'available' ? '#FF9800' : '#2E7D32',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      {book.status === 'available' ? 'Mark Unavailable' : 'Mark Available'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (book.id.toString().startsWith('sample')) {
+                          alert('Cannot delete sample books. Add your own books to manage them.');
+                        } else {
+                          requestOtpAction('delete', { bookId: book.id, bookTitle: book.title });
+                        }
+                      }}
+                      style={{
+                        backgroundColor: '#d32f2f',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    };
 
     const AdminUsersModal = () => (
       <div style={{
@@ -1529,12 +2156,295 @@ const App = () => {
       </div>
     );
 
+    const EditProfileModal = () => {
+      const handleProfileUpdate = () => {
+        // Check OTP first
+        if (otp !== '1234') {
+          alert('Invalid OTP. Please enter 1234 for demo.');
+          return;
+        }
+
+        // Update user data
+        const updatedUser = {
+          ...user,
+          name: editProfileData.name,
+          email: editProfileData.email,
+          mobile: editProfileData.mobile,
+          block: editProfileData.block,
+          apartment: editProfileData.apartment
+        };
+
+        // Update in allUsers
+        const updatedAllUsers = {
+          ...allUsers,
+          [user.email]: {
+            ...allUsers[user.email],
+            ...updatedUser
+          }
+        };
+
+        // If email changed, we need to handle the key change
+        if (editProfileData.email !== user.email) {
+          delete updatedAllUsers[user.email];
+          updatedAllUsers[editProfileData.email] = {
+            ...allUsers[user.email],
+            ...updatedUser
+          };
+        }
+
+        setAllUsers(updatedAllUsers);
+        setUser(updatedUser);
+        localStorage.setItem('communityLibraryAllUsers', JSON.stringify(updatedAllUsers));
+        localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(updatedUser));
+        
+        alert('Profile updated successfully!');
+        setShowEditProfile(false);
+        setShowOtpModal(false);
+        setOtp('');
+      };
+
+      const handleSaveProfile = () => {
+        if (!editProfileData.name || !editProfileData.email) {
+          alert('Name and email are required fields.');
+          return;
+        }
+
+        // Show OTP modal for verification
+        setOtpAction(handleProfileUpdate);
+        setOtpData({ action: 'profile_update' });
+        setShowOtpModal(true);
+      };
+
+      return (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#333' }}>✏️ Edit Profile</h3>
+              <button
+                onClick={() => setShowEditProfile(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Name *
+              </label>
+              <input
+                type="text"
+                value={editProfileData.name}
+                onChange={(e) => setEditProfileData({...editProfileData, name: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem'
+                }}
+                required
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Email *
+              </label>
+              <input
+                type="email"
+                value={editProfileData.email}
+                onChange={(e) => setEditProfileData({...editProfileData, email: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem'
+                }}
+                required
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Mobile Number
+              </label>
+              <input
+                type="tel"
+                value={editProfileData.mobile}
+                onChange={(e) => setEditProfileData({...editProfileData, mobile: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem'
+                }}
+                placeholder="Enter mobile number"
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                  Block
+                </label>
+                <input
+                  type="text"
+                  value={editProfileData.block}
+                  onChange={(e) => setEditProfileData({...editProfileData, block: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '1rem'
+                  }}
+                  placeholder="e.g., A, B, C"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                  Apartment
+                </label>
+                <input
+                  type="text"
+                  value={editProfileData.apartment}
+                  onChange={(e) => setEditProfileData({...editProfileData, apartment: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '1rem'
+                  }}
+                  placeholder="e.g., 101, 205"
+                />
+              </div>
+            </div>
+
+            <div style={{ 
+              backgroundColor: '#fff3cd', 
+              border: '1px solid #ffeaa7', 
+              borderRadius: '4px', 
+              padding: '10px', 
+              marginBottom: '20px' 
+            }}>
+              <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+                <strong>📱 Note:</strong> Profile changes require OTP verification. Use <strong>1234</strong> for demo.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowEditProfile(false)}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                style={{
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     return (
       <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
         <h2 style={{ fontSize: "2rem", marginBottom: "30px", color: "#333" }}>
           Dashboard - Welcome {user.name}!
           {user.role === 'superadmin' && <span style={{ color: '#d32f2f', fontSize: '1rem', marginLeft: '10px' }}>(Super Admin)</span>}
         </h2>
+        
+        {/* User Profile Section */}
+        <div style={{
+          backgroundColor: '#f8f9fa',
+          border: '1px solid #dee2e6',
+          borderRadius: '8px',
+          padding: '20px',
+          marginBottom: '30px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ color: '#333', marginTop: 0, marginBottom: '10px' }}>👤 Profile Information</h3>
+              <p style={{ margin: '5px 0', color: '#666' }}><strong>Email:</strong> {user.email}</p>
+              <p style={{ margin: '5px 0', color: '#666' }}><strong>Mobile:</strong> {user.mobile || 'Not provided'}</p>
+              <p style={{ margin: '5px 0', color: '#666' }}><strong>Community:</strong> {user.community}</p>
+              {user.block && <p style={{ margin: '5px 0', color: '#666' }}><strong>Block:</strong> {user.block}</p>}
+              {user.apartment && <p style={{ margin: '5px 0', color: '#666' }}><strong>Apartment:</strong> {user.apartment}</p>}
+            </div>
+            <button
+              onClick={() => {
+                setEditProfileData({
+                  name: user?.name || '',
+                  email: user?.email || '',
+                  mobile: user?.mobile || '',
+                  block: user?.block || '',
+                  apartment: user?.apartment || ''
+                });
+                setShowEditProfile(true);
+              }}
+              style={{
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              ✏️ Edit Profile
+            </button>
+          </div>
+        </div>
         
         {user.role === 'superadmin' && (
           <div style={{
@@ -1639,6 +2549,22 @@ const App = () => {
             >
               Manage Books
             </button>
+            <button
+              onClick={() => setShowBorrowedBooks(true)}
+              style={{
+                backgroundColor: '#FF9800',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                marginTop: '10px',
+                marginLeft: '10px'
+              }}
+            >
+              View Borrowed
+            </button>
           </div>
           <div style={{ 
             padding: "20px", 
@@ -1647,8 +2573,55 @@ const App = () => {
             border: "1px solid #FF9800" 
           }}>
             <h3 style={{ color: "#FF9800", marginBottom: "15px" }}>📖 Borrowed</h3>
-            <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>2 Books</p>
-            <p style={{ color: "#666" }}>1 Due Tomorrow</p>
+            {(() => {
+              // Find books borrowed by the current user
+              const userEmail = user?.email;
+              const borrowedBooks = [];
+              
+              // Check all users' books to find ones borrowed by current user
+              Object.values(allUsers).forEach(userData => {
+                if (userData.books) {
+                  userData.books.forEach(book => {
+                    if (book.borrowerEmail === userEmail) {
+                      borrowedBooks.push(book);
+                    }
+                  });
+                }
+              });
+              
+              // Calculate upcoming dues
+              const dueTomorrow = borrowedBooks.filter(book => {
+                const rentDays = Math.ceil(calculateRent(book.borrowDate, book.dailyRate) / book.dailyRate);
+                const dueDate = new Date(book.borrowDate);
+                dueDate.setDate(dueDate.getDate() + rentDays + 1); // Check if due within next day
+                const today = new Date();
+                const diffTime = dueDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays <= 1 && diffDays >= 0;
+              }).length;
+              
+              return (
+                <>
+                  <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>{borrowedBooks.length} Books</p>
+                  <p style={{ color: "#666" }}>{dueTomorrow} Due Soon</p>
+                  <button
+                    onClick={() => setShowBorrowedBooks(true)}
+                    style={{
+                      backgroundColor: '#FF9800',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      marginTop: '10px'
+                    }}
+                  >
+                    View Borrowed Books
+                  </button>
+                </>
+              );
+            })()}
           </div>
           <div style={{ 
             padding: "20px", 
@@ -1710,25 +2683,14 @@ const App = () => {
               >
                 Manage Wallet (Requires OTP)
               </button>
-              <button
-                onClick={() => alert("Profile editing coming soon!")}
-                style={{
-                  backgroundColor: "#FF9800",
-                  color: "white",
-                  border: "none",
-                  padding: "12px",
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
-              >
-                Edit Profile
-              </button>
             </div>
           </div>
         </div>
 
         {showMyBooks && <MyBooksModal />}
+        {showBorrowedBooks && <BorrowedBooksModal />}
         {showOtpModal && <OtpModal />}
+        {showEditProfile && <EditProfileModal />}
         {showAdminUsers && <AdminUsersModal />}
         {showAdminBooks && <AdminBooksModal />}
         {showAdminCommunities && <AdminCommunitiesModal />}

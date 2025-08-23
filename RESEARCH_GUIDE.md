@@ -32,6 +32,7 @@ For secure operations (book deletion, admin actions), use OTP: **1234**
 - [x] Username/email-based login
 - [x] Community auto-assignment based on email/username
 - [x] Role-based access (Resident vs Super Admin)
+- [x] **User Profile Management:** Edit profile with OTP verification
 - [x] OTP verification for sensitive operations
 
 ### 2. **Advanced Book Management**
@@ -42,6 +43,13 @@ For secure operations (book deletion, admin actions), use OTP: **1234**
 - [x] Browse books with visual covers
 - [x] Search and filter functionality
 - [x] Community-specific book collections
+
+### 3. **User Profile & Account Management**
+- [x] **Edit Profile Feature:** Update personal information
+- [x] **OTP-Protected Updates:** Secure profile modifications
+- [x] **Real-time Profile Display:** Current user information visible
+- [x] **Block/Apartment Management:** Residential details update
+- [x] **Email/Mobile Updates:** Contact information management
 
 ### 3. **Community Isolation & Data Security**
 - [x] Complete data separation between communities
@@ -87,12 +95,23 @@ For secure operations (book deletion, admin actions), use OTP: **1234**
 2. Click "Request Book"
 3. Check if request goes through
 
-### Scenario 4: Security Testing
+### Scenario 4: Profile Management Testing
+1. Login as any user (e.g., `john_doe`)
+2. Go to Dashboard and check profile information
+3. Click "Edit Profile" button
+4. Update profile information (name, mobile, block, apartment)
+5. Test OTP verification (use `1234` for demo)
+6. Verify profile updates are reflected in the dashboard
+7. Test email change functionality
+
+### Scenario 5: Security Testing
 1. Try to delete a book (requires OTP)
 2. Access wallet management (requires OTP)
-3. Test with wrong OTP
+3. Test profile updates (requires OTP)
+4. Test with wrong OTP
+5. Verify OTP protection on sensitive operations
 
-### Scenario 5: Community Restrictions
+### Scenario 6: Community Restrictions
 1. Login as different users
 2. Notice different book collections
 3. Test community isolation

@@ -20,6 +20,7 @@ Access via Dashboard → "Manage Users"
 - View all registered users across all communities
 - See user details: email, community, book count, verification status
 - **Verify/Suspend Users:** Toggle user verification status
+- **Monitor Profile Updates:** Track user profile changes and updates
 - Track user activity and engagement
 - Monitor community distribution
 
@@ -128,7 +129,12 @@ Access via Dashboard → "Communities"
    - Verify user is in correct community
    - Toggle verification if needed
 
-2. **Community Imbalance:**
+2. **Profile Update Issues:**
+   - Monitor user profile changes in real-time
+   - Verify OTP-protected updates are working
+   - Check for email/mobile number changes
+
+3. **Community Imbalance:**
    - Monitor community statistics
    - Encourage cross-community activities
    - Analyze user distribution patterns
