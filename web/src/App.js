@@ -559,21 +559,9 @@ const App = () => {
     const [showAddBook, setShowAddBook] = useState(false);
     const [showBulkAdd, setShowBulkAdd] = useState(false);
     
-    // Sample books data with community filtering
-    const sampleBooks = [
-      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", ownerEmail: "john@example.com", available: true, price: "₹50/day", community: "Aparna Sarovar Zenith", isbn: "9780060935467", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-20" },
-      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", ownerEmail: "sarah@example.com", available: false, price: "₹40/day", community: "Aparna Sarovar Zenith", isbn: "9780451524935", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-19" },
-      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", ownerEmail: "emma@example.com", available: true, price: "₹60/day", community: "Aparna Sarovar Zenith", isbn: "9780141439518", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-18" },
-      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", ownerEmail: "mike@sarovar.com", available: true, price: "₹45/day", community: "Aparna Sarovar", isbn: "9780743273565", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-17" },
-      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", ownerEmail: "lisa@example.com", available: true, price: "₹80/day", community: "Aparna Sarovar Zenith", isbn: "9780439708180", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-16" },
-      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", ownerEmail: "david@cyberzon.com", available: false, price: "₹55/day", community: "Aparna Cyberzon", isbn: "9780316769174", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-15" },
-      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", ownerEmail: "priya@example.com", available: true, price: "₹35/day", community: "Aparna Sarovar Zenith", isbn: "9788173711466", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-14" },
-      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", ownerEmail: "raj@example.com", available: true, price: "₹30/day", community: "Aparna Sarovar Zenith", isbn: "9788129116482", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-13" },
-    ];
-
-    // Combine sample books with community books from actual users
-    const communityBooks = getCommunityBooks();
-    const allCommunityBooks = [...sampleBooks.filter(book => !userCommunity || book.community === userCommunity), ...communityBooks];
+  // Only use real community books persisted by users
+  const communityBooks = getCommunityBooks();
+  const allCommunityBooks = communityBooks.filter(book => !userCommunity || book.community === userCommunity);
 
     const filteredBooks = allCommunityBooks.filter(book => 
       book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1419,21 +1407,9 @@ const App = () => {
       apartment: user?.apartment || ''
     });
 
-    // Get books data for admin - combining sample books and user books
-    const sampleBooks = [
-      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", ownerEmail: "john@example.com", available: true, price: "₹50/day", community: "Aparna Sarovar Zenith", isbn: "9780060935467", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-20" },
-      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", ownerEmail: "sarah@example.com", available: false, price: "₹40/day", community: "Aparna Sarovar Zenith", isbn: "9780451524935", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-19" },
-      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", ownerEmail: "emma@example.com", available: true, price: "₹60/day", community: "Aparna Sarovar Zenith", isbn: "9780141439518", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-18" },
-      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", ownerEmail: "mike@sarovar.com", available: true, price: "₹45/day", community: "Aparna Sarovar", isbn: "9780743273565", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-17" },
-      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", ownerEmail: "lisa@example.com", available: true, price: "₹80/day", community: "Aparna Sarovar Zenith", isbn: "9780439708180", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-16" },
-      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", ownerEmail: "david@cyberzon.com", available: false, price: "₹55/day", community: "Aparna Cyberzon", isbn: "9780316769174", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-15" },
-      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", ownerEmail: "priya@example.com", available: true, price: "₹35/day", community: "Aparna Sarovar Zenith", isbn: "9788173711466", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-14" },
-      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", ownerEmail: "raj@example.com", available: true, price: "₹30/day", community: "Aparna Sarovar Zenith", isbn: "9788129116482", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-13" },
-    ];
-
     // Get all user books
     const allUserBooks = Object.values(allUsers).flatMap(userData => userData.books || []);
-    const allBooksForAdmin = [...sampleBooks, ...allUserBooks];
+  const allBooksForAdmin = allUserBooks; // Only real user books
 
     const communities = [
       "Aparna Sarovar Zenith",
@@ -1466,11 +1442,7 @@ const App = () => {
 
     // Get current user's books
     const currentUserBooks = getCurrentUserBooks();
-    const myBooksSample = [
-      { id: 'sample1', title: "Wings of Fire", author: "A.P.J. Abdul Kalam", status: "available", borrower: null, price: "₹35/day", earnings: "₹140", dateAdded: "15/08/2025", owner: user?.name, ownerEmail: user?.email },
-      { id: 'sample2', title: "Gitanjali", author: "Rabindranath Tagore", status: "borrowed", borrower: "Raj K.", price: "₹30/day", earnings: "₹90", dateAdded: "10/08/2025", owner: user?.name, ownerEmail: user?.email },
-    ];
-    const allMyBooks = [...myBooksSample, ...currentUserBooks];
+  const allMyBooks = currentUserBooks; // Only actual user's books
 
     const handleOtpVerification = () => {
       if (otp === '1234') {
@@ -2666,9 +2638,9 @@ const App = () => {
             borderRadius: "8px", 
             border: "1px solid #2196F3" 
           }}>
-            <h3 style={{ color: "#2196F3", marginBottom: "15px" }}>💰 Wallet</h3>
-            <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>₹1,245.50</p>
-            <p style={{ color: "#666" }}>Available Balance</p>
+            <h3 style={{ color: "#2196F3", marginBottom: "15px" }}>💰 Wallet (WIP)</h3>
+            <p style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#333", marginBottom:'6px' }}>Offline Only</p>
+            <p style={{ color: "#666", fontSize:'0.9rem', margin:0 }}>Coming soon: deposits, payouts, history</p>
           </div>
         </div>
 
