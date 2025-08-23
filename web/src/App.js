@@ -9,10 +9,13 @@ const App = () => {
   
   // Define state for modals
   const [showBorrowedBooks, setShowBorrowedBooks] = useState(false);
+  const [showMyBooks, setShowMyBooks] = useState(false); // user book management modal
+  // Admin modals removed from top-level (will re-enable when admin features finalized)
   const [showAdminBooks, setShowAdminBooks] = useState(false);
   const [showAdminUsers, setShowAdminUsers] = useState(false);
   const [showAdminCommunities, setShowAdminCommunities] = useState(false);
-  const [showMyBooks, setShowMyBooks] = useState(false);
+  // Ticker to trigger periodic recalculation of rent (every 60s)
+  const [rentTick, setRentTick] = useState(0);
   
   // Load user data from localStorage on component mount
   useEffect(() => {
@@ -47,6 +50,12 @@ const App = () => {
     localStorage.setItem('communityLibraryRequests', JSON.stringify(bookRequests));
     localStorage.setItem('communityLibraryBookRequests', JSON.stringify(bookRequests));
   }, [bookRequests]);
+
+  // Periodic rent refresh (1 minute)
+  useEffect(() => {
+    const id = setInterval(() => setRentTick(t => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   // Get current user's books
   const getCurrentUserBooks = () => {
@@ -1400,9 +1409,7 @@ const App = () => {
     const [otpAction, setOtpAction] = useState(null);
     const [otpData, setOtpData] = useState(null);
     const [otp, setOtp] = useState('');
-    const [showAdminUsers, setShowAdminUsers] = useState(false);
-    const [showAdminBooks, setShowAdminBooks] = useState(false);
-    const [showAdminCommunities, setShowAdminCommunities] = useState(false);
+  // Removed duplicate state declarations (using top-level state instead)
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [editProfileData, setEditProfileData] = useState({
       name: user?.name || '',
