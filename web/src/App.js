@@ -1,10 +1,75 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState("home");
   const [user, setUser] = useState(null);
   const [userCommunity, setUserCommunity] = useState(null);
-  const [userBooks, setUserBooks] = useState([]); // Store user's added books
+  const [allUsers, setAllUsers] = useState({}); // Store all users and their books
+  
+  // Load user data from localStorage on component mount
+  useEffect(() => {
+    const savedUsers = localStorage.getItem('communityLibraryUsers');
+    if (savedUsers) {
+      setAllUsers(JSON.parse(savedUsers));
+    }
+    
+    const savedCurrentUser = localStorage.getItem('communityLibraryCurrentUser');
+    if (savedCurrentUser) {
+      const userData = JSON.parse(savedCurrentUser);
+      setUser(userData);
+      setUserCommunity(userData.community);
+    }
+  }, []);
+
+  // Save user data to localStorage whenever allUsers changes
+  useEffect(() => {
+    if (Object.keys(allUsers).length > 0) {
+      localStorage.setItem('communityLibraryUsers', JSON.stringify(allUsers));
+    }
+  }, [allUsers]);
+
+  // Get current user's books
+  const getCurrentUserBooks = () => {
+    if (!user || !allUsers[user.email]) return [];
+    return allUsers[user.email].books || [];
+  };
+
+  // Get all books from users in the same community
+  const getCommunityBooks = () => {
+    if (!userCommunity) return [];
+    
+    const communityBooks = [];
+    Object.values(allUsers).forEach(userData => {
+      if (userData.community === userCommunity && userData.books) {
+        communityBooks.push(...userData.books);
+      }
+    });
+    return communityBooks;
+  };
+
+  // Add book to current user's collection
+  const addBookToUser = (bookData) => {
+    if (!user) return;
+    
+    const newBook = {
+      ...bookData,
+      id: Date.now() + Math.random(),
+      owner: user.name,
+      ownerEmail: user.email,
+      community: userCommunity,
+      dateAdded: new Date().toLocaleDateString(),
+      earnings: '₹0',
+      available: true
+    };
+
+    setAllUsers(prev => ({
+      ...prev,
+      [user.email]: {
+        ...prev[user.email],
+        books: [...(prev[user.email]?.books || []), newBook]
+      }
+    }));
+  };
 
   const navigate = (page) => {
     setCurrentPage(page);
@@ -45,7 +110,12 @@ const App = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <span>Welcome, {user.name}!</span>
             <button 
-              onClick={() => { setUser(null); navigate("home"); }}
+              onClick={() => { 
+                setUser(null); 
+                setUserCommunity(null);
+                localStorage.removeItem('communityLibraryCurrentUser');
+                navigate("home"); 
+              }}
               style={{ 
                 backgroundColor: "rgba(255,255,255,0.2)", 
                 border: "1px solid white", 
@@ -232,23 +302,22 @@ const App = () => {
     const [showBulkAdd, setShowBulkAdd] = useState(false);
     
     // Sample books data with community filtering
-    const allBooks = [
-      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", available: true, price: "₹50/day", community: "Green Valley Society", isbn: "9780060935467" },
-      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", available: false, price: "₹40/day", community: "Green Valley Society", isbn: "9780451524935" },
-      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", available: true, price: "₹60/day", community: "Green Valley Society", isbn: "9780141439518" },
-      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", available: true, price: "₹45/day", community: "Sunset Apartments", isbn: "9780743273565" },
-      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", available: true, price: "₹80/day", community: "Green Valley Society", isbn: "9780439708180" },
-      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", available: false, price: "₹55/day", community: "Sunset Apartments", isbn: "9780316769174" },
-      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", available: true, price: "₹35/day", community: "Green Valley Society", isbn: "9788173711466" },
-      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", available: true, price: "₹30/day", community: "Green Valley Society", isbn: "9788129116482" },
+    const sampleBooks = [
+      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", ownerEmail: "john@example.com", available: true, price: "₹50/day", community: "Green Valley Society", isbn: "9780060935467", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-20" },
+      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", ownerEmail: "sarah@example.com", available: false, price: "₹40/day", community: "Green Valley Society", isbn: "9780451524935", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-19" },
+      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", ownerEmail: "emma@example.com", available: true, price: "₹60/day", community: "Green Valley Society", isbn: "9780141439518", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-18" },
+      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", ownerEmail: "mike@sunset.com", available: true, price: "₹45/day", community: "Sunset Apartments", isbn: "9780743273565", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-17" },
+      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", ownerEmail: "lisa@example.com", available: true, price: "₹80/day", community: "Green Valley Society", isbn: "9780439708180", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-16" },
+      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", ownerEmail: "david@sunset.com", available: false, price: "₹55/day", community: "Sunset Apartments", isbn: "9780316769174", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-15" },
+      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", ownerEmail: "priya@example.com", available: true, price: "₹35/day", community: "Green Valley Society", isbn: "9788173711466", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-14" },
+      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", ownerEmail: "raj@example.com", available: true, price: "₹30/day", community: "Green Valley Society", isbn: "9788129116482", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-13" },
     ];
 
-    // Filter books by user's community
-    const communityBooks = user && userCommunity 
-      ? allBooks.filter(book => book.community === userCommunity)
-      : allBooks.filter(book => book.community === "Green Valley Society"); // Default community for demo
+    // Combine sample books with community books from actual users
+    const communityBooks = getCommunityBooks();
+    const allCommunityBooks = [...sampleBooks.filter(book => !userCommunity || book.community === userCommunity), ...communityBooks];
 
-    const filteredBooks = communityBooks.filter(book => 
+    const filteredBooks = allCommunityBooks.filter(book => 
       book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       book.author.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -320,24 +389,18 @@ const App = () => {
 
       const handleSubmit = (e) => {
         e.preventDefault();
-        const newBook = {
-          id: Date.now(), // Simple ID generation
+        const newBookData = {
           title: bookData.title,
           author: bookData.author,
           isbn: bookData.isbn,
           condition: bookData.condition,
           price: `₹${bookData.price}/day`,
           description: bookData.description,
-          imageUrl: bookData.imageUrl,
-          owner: user.name,
-          available: true,
-          community: userCommunity,
-          dateAdded: new Date().toLocaleDateString(),
-          earnings: '₹0'
+          imageUrl: bookData.imageUrl
         };
         
-        // Add book to user's collection
-        setUserBooks(prev => [...prev, newBook]);
+        // Add book to user's collection using the new function
+        addBookToUser(newBookData);
         
         alert(`Book "${bookData.title}" added successfully to your collection!`);
         setShowAddBook(false);
@@ -570,24 +633,15 @@ const App = () => {
       };
 
       const addAllBooks = () => {
-        const newBooks = processedBooks.map(bookData => ({
-          id: Date.now() + Math.random(), // Unique ID
-          title: bookData.title,
-          author: bookData.author,
-          isbn: bookData.isbn,
-          condition: bookData.condition,
-          price: `₹${bookData.price}/day`,
-          description: bookData.description,
-          imageUrl: bookData.imageUrl,
-          owner: user.name,
-          available: true,
-          community: userCommunity,
-          dateAdded: new Date().toLocaleDateString(),
-          earnings: '₹0'
-        }));
+        processedBooks.forEach(bookData => {
+          const bookWithPrice = {
+            ...bookData,
+            price: `₹${bookData.price}/day`
+          };
+          addBookToUser(bookWithPrice);
+        });
         
-        setUserBooks(prev => [...prev, ...newBooks]);
-        alert(`Successfully added ${newBooks.length} books to your collection!`);
+        alert(`Successfully added ${processedBooks.length} books to your collection!`);
         setShowBulkAdd(false);
         setBulkBooks('');
         setProcessedBooks([]);
@@ -929,16 +983,25 @@ const App = () => {
 
     // Combine sample books with user's added books
     const sampleBooks = [
-      { id: 'sample1', title: "Wings of Fire", author: "A.P.J. Abdul Kalam", status: "available", borrower: null, price: "₹35/day", earnings: "₹140", dateAdded: "15/08/2025" },
-      { id: 'sample2', title: "Gitanjali", author: "Rabindranath Tagore", status: "borrowed", borrower: "Raj K.", price: "₹30/day", earnings: "₹90", dateAdded: "10/08/2025" },
+      { id: 'sample1', title: "Wings of Fire", author: "A.P.J. Abdul Kalam", status: "available", borrower: null, price: "₹35/day", earnings: "₹140", dateAdded: "15/08/2025", owner: user?.name, ownerEmail: user?.email },
+      { id: 'sample2', title: "Gitanjali", author: "Rabindranath Tagore", status: "borrowed", borrower: "Raj K.", price: "₹30/day", earnings: "₹90", dateAdded: "10/08/2025", owner: user?.name, ownerEmail: user?.email },
     ];
 
-    const allMyBooks = [...sampleBooks, ...userBooks];
+    // Get current user's books
+    const currentUserBooks = getCurrentUserBooks();
+    const allMyBooks = [...sampleBooks, ...currentUserBooks];
 
     const handleOtpVerification = () => {
       if (otp === '1234') {
         if (otpAction === 'delete') {
-          setUserBooks(prev => prev.filter(book => book.id !== otpData.bookId));
+          // Remove book from current user's collection
+          setAllUsers(prev => ({
+            ...prev,
+            [user.email]: {
+              ...prev[user.email],
+              books: prev[user.email].books.filter(book => book.id !== otpData.bookId)
+            }
+          }));
           alert(`${otpData.bookTitle} removed from collection`);
         } else if (otpAction === 'wallet') {
           alert("Wallet transaction completed successfully!");
@@ -1133,9 +1196,15 @@ const App = () => {
                       if (book.id.toString().startsWith('sample')) {
                         alert(`${book.title} marked as ${newStatus}`);
                       } else {
-                        setUserBooks(prev => prev.map(b => 
-                          b.id === book.id ? { ...b, status: newStatus } : b
-                        ));
+                        setAllUsers(prev => ({
+                          ...prev,
+                          [user.email]: {
+                            ...prev[user.email],
+                            books: prev[user.email].books.map(b => 
+                              b.id === book.id ? { ...b, status: newStatus } : b
+                            )
+                          }
+                        }));
                       }
                     }}
                     style={{
@@ -1329,25 +1398,48 @@ const App = () => {
     const handleSubmit = (e) => {
       e.preventDefault();
       
-      // Simulate login and community detection
-      const userData = { 
-        name: formData.emailOrUsername.includes('@') ? formData.emailOrUsername.split('@')[0] : formData.emailOrUsername, 
-        email: formData.emailOrUsername.includes('@') ? formData.emailOrUsername : `${formData.emailOrUsername}@example.com`,
-        mobile: formData.mobile 
-      };
-      
-      // Simulate community assignment based on email domain or username
-      let community = "Green Valley Society";
-      if (formData.emailOrUsername.includes('sunset') || formData.emailOrUsername === 'sunset_user') {
-        community = "Sunset Apartments";
-      } else if (formData.emailOrUsername.includes('metro') || formData.emailOrUsername === 'metro_user') {
-        community = "Metro Heights";
+      // Check if user exists in allUsers
+      const existingUser = allUsers[formData.emailOrUsername];
+      if (existingUser && existingUser.password === formData.password) {
+        // User exists and password matches
+        setUser(existingUser);
+        setUserCommunity(existingUser.community);
+        localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(existingUser));
+        alert(`Login successful! Welcome back to ${existingUser.community}`);
+        navigate('dashboard');
+      } else {
+        // For demo purposes, allow login with demo accounts
+        const userData = { 
+          name: formData.emailOrUsername.includes('@') ? formData.emailOrUsername.split('@')[0] : formData.emailOrUsername, 
+          email: formData.emailOrUsername.includes('@') ? formData.emailOrUsername : `${formData.emailOrUsername}@example.com`,
+          mobile: formData.mobile 
+        };
+        
+        // Simulate community assignment based on email domain or username
+        let community = "Green Valley Society";
+        if (formData.emailOrUsername.includes('sunset') || formData.emailOrUsername === 'sunset_user') {
+          community = "Sunset Apartments";
+        } else if (formData.emailOrUsername.includes('metro') || formData.emailOrUsername === 'metro_user') {
+          community = "Metro Heights";
+        }
+        
+        userData.community = community;
+        
+        // Add demo user to allUsers if not exists
+        setAllUsers(prev => ({
+          ...prev,
+          [userData.email]: {
+            ...userData,
+            books: []
+          }
+        }));
+        
+        setUser(userData);
+        setUserCommunity(community);
+        localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(userData));
+        alert(`Login successful! Welcome to ${community}`);
+        navigate('dashboard');
       }
-      
-      setUser(userData);
-      setUserCommunity(community);
-      alert(`Login successful! Welcome to ${community}`);
-      navigate('dashboard');
     };
 
     return (
@@ -1524,15 +1616,29 @@ const App = () => {
         return;
       }
       
-      // Simulate registration
-      setUser({ 
+      const userData = { 
         name: formData.fullName, 
         email: formData.email, 
         mobile: formData.mobile,
         blockNumber: formData.blockNumber,
-        apartmentNumber: formData.apartmentNumber
-      });
+        apartmentNumber: formData.apartmentNumber,
+        community: formData.community,
+        password: formData.password
+      };
+      
+      // Register user in allUsers
+      setAllUsers(prev => ({
+        ...prev,
+        [formData.email]: {
+          ...userData,
+          books: []
+        }
+      }));
+      
+      setUser(userData);
       setUserCommunity(formData.community);
+      localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(userData));
+      
       alert(`Registration successful! Welcome to ${formData.community}, Block ${formData.blockNumber}, Apt ${formData.apartmentNumber}`);
       navigate('dashboard');
     };
