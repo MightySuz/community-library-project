@@ -177,11 +177,11 @@ const App = () => {
     if (!userBooks) return false;
     
     // Find the book and update its status
-    const bookIndex = userBooks.findIndex(book => book.id === bookId);
+  const bookIndex = userBooks.findIndex(book => String(book.id) === String(bookId));
     if (bookIndex === -1) return false;
     
-    // Get requester info from requests
-    const requesterRequest = bookRequests[userEmail]?.[bookId];
+  // Get requester info from requests
+  const requesterRequest = bookRequests[userEmail]?.[bookId];
     if (!requesterRequest) return false;
     
     // Update book status in user's collection
@@ -223,9 +223,25 @@ const App = () => {
     };
     
   setBookRequests(updatedRequests);
-  // Immediate persistence handled by effect
-    
-    alert(`Checkout completed for ${updatedUserBooks[bookIndex].title}. The borrower will be notified.`);
+  localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
+
+  // Borrower notification (lightweight local implementation)
+  try {
+    const notificationsRaw = localStorage.getItem('communityLibraryNotifications');
+    const notifications = notificationsRaw ? JSON.parse(notificationsRaw) : {};
+    if (!notifications[requesterRequest.requesterEmail]) notifications[requesterRequest.requesterEmail] = [];
+    notifications[requesterRequest.requesterEmail].push({
+      type: 'checkout-approved',
+      bookTitle: updatedUserBooks[bookIndex].title,
+      owner: user.name,
+      date: new Date().toISOString(),
+      message: `Your checkout for "${updatedUserBooks[bookIndex].title}" was approved. You can now pick up / have picked up the book.`,
+      read: false
+    });
+    localStorage.setItem('communityLibraryNotifications', JSON.stringify(notifications));
+  } catch (_) {}
+
+    alert(`Checkout completed for ${updatedUserBooks[bookIndex].title}. The borrower has been notified.`);
     return true;
   };
   
@@ -282,7 +298,27 @@ const App = () => {
       };
       
       setBookRequests(updatedRequests);
+      localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
     }
+
+    // Notify borrower of return completion
+    try {
+      const borrowerEmail = book.borrowerEmail;
+      if (borrowerEmail) {
+        const notificationsRaw = localStorage.getItem('communityLibraryNotifications');
+        const notifications = notificationsRaw ? JSON.parse(notificationsRaw) : {};
+        if (!notifications[borrowerEmail]) notifications[borrowerEmail] = [];
+        notifications[borrowerEmail].push({
+          type: 'return-completed',
+          bookTitle: book.title,
+            owner: user.name,
+          date: new Date().toISOString(),
+          message: `Return recorded for "${book.title}". Thank you!`,
+          read: false
+        });
+        localStorage.setItem('communityLibraryNotifications', JSON.stringify(notifications));
+      }
+    } catch (_) {}
     
     return true;
   };
@@ -310,6 +346,17 @@ const App = () => {
     };
     
     const pendingCount = getPendingRequestsCount();
+    // Borrower unread notifications count
+    let borrowerNotificationCount = 0;
+    try {
+      if (user?.email) {
+        const notificationsRaw = localStorage.getItem('communityLibraryNotifications');
+        if (notificationsRaw) {
+          const notifications = JSON.parse(notificationsRaw);
+          borrowerNotificationCount = (notifications[user.email] || []).filter(n => !n.read).length;
+        }
+      }
+    } catch (_) {}
     
     return (
       <header style={{
@@ -336,7 +383,7 @@ const App = () => {
           >
             Books
           </button>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', display:'flex', alignItems:'center', gap:'12px' }}>
             <button 
               onClick={() => navigate("dashboard")}
               style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "1rem" }}
@@ -361,6 +408,16 @@ const App = () => {
               }}>
                 {pendingCount}
               </span>
+            )}
+            {user && borrowerNotificationCount > 0 && (
+              <span title="New updates" style={{
+                backgroundColor: '#1976D2',
+                color: 'white',
+                borderRadius: '12px',
+                padding: '2px 8px',
+                fontSize: '0.7rem',
+                fontWeight:'bold'
+              }}>{borrowerNotificationCount} 🔔</span>
             )}
           </div>
           {user ? (
@@ -2917,6 +2974,8 @@ const App = () => {
       fullName: '',
       email: '',
       mobile: '',
+  whatsappSame: true,
+  whatsappNumber: '',
       community: '',
       blockNumber: '',
       apartmentNumber: '',
@@ -2945,6 +3004,8 @@ const App = () => {
         name: formData.fullName, 
         email: formData.email, 
         mobile: formData.mobile,
+        whatsapp: formData.whatsappSame ? formData.mobile : formData.whatsappNumber,
+        whatsappConsent: true,
         blockNumber: formData.blockNumber,
         apartmentNumber: formData.apartmentNumber,
         community: formData.community,
@@ -3014,6 +3075,23 @@ const App = () => {
             }}
             required
           />
+          <div style={{background:'#f5f5f5', padding:'10px', border:'1px solid #ddd', borderRadius:'4px'}}>
+            <label style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'0.9rem'}}>
+              <input type="checkbox" checked={formData.whatsappSame} onChange={e=> setFormData(p=>({...p, whatsappSame: e.target.checked}))} />
+              Use same number for WhatsApp communication
+            </label>
+            {!formData.whatsappSame && (
+              <input
+                type="tel"
+                placeholder="WhatsApp Number"
+                value={formData.whatsappNumber}
+                onChange={(e)=> setFormData(p=>({...p, whatsappNumber: e.target.value}))}
+                style={{ marginTop:'8px', padding:'10px', width:'100%', border:'1px solid #ccc', borderRadius:'4px'}}
+                required
+              />
+            )}
+            <p style={{margin:'8px 0 0 0', fontSize:'0.7rem', color:'#555'}}>We'll use this number for borrow/return coordination only.</p>
+          </div>
           <select
             value={formData.community}
             onChange={(e) => setFormData(prev => ({ ...prev, community: e.target.value }))}
