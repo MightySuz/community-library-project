@@ -1280,6 +1280,31 @@ const App = () => {
               </button>
             </div>
             
+            {borrowedBooks.length > 0 && (
+              <div style={{
+                backgroundColor:'#FFF3E0',
+                border:'1px solid #FF9800',
+                padding:'15px',
+                borderRadius:'8px',
+                marginBottom:'20px',
+                display:'flex',
+                justifyContent:'space-between',
+                flexWrap:'wrap'
+              }}>
+                <div style={{marginRight:'20px'}}>
+                  <p style={{margin:'0 0 4px 0', fontSize:'0.8rem', color:'#666'}}>TOTAL OWED NOW</p>
+                  <p style={{margin:0, fontSize:'1.8rem', fontWeight:'bold', color:'#FF9800'}}>₹{borrowedBooks.reduce((s,b)=> s + (b.currentRent||0),0)}</p>
+                </div>
+                <div style={{marginRight:'20px'}}>
+                  <p style={{margin:'0 0 4px 0', fontSize:'0.8rem', color:'#666'}}>ACTIVE RENTALS</p>
+                  <p style={{margin:0, fontSize:'1.4rem', fontWeight:'bold'}}>{borrowedBooks.length}</p>
+                </div>
+                <div style={{flex:'1 1 100%', marginTop:'10px', fontSize:'0.8rem', color:'#555'}}>
+                  Rent accrues daily until the owner marks a return. Pay the owner directly when returning.
+                </div>
+              </div>
+            )}
+
             {borrowedBooks.length === 0 ? (
               <div style={{ 
                 padding: '30px', 
@@ -2583,7 +2608,10 @@ const App = () => {
                 if (userData.books) {
                   userData.books.forEach(book => {
                     if (book.borrowerEmail === userEmail) {
-                      borrowedBooks.push(book);
+                      borrowedBooks.push({
+                        ...book,
+                        currentRent: calculateRent(book.borrowDate, book.dailyRate || 10)
+                      });
                     }
                   });
                 }
@@ -2600,10 +2628,12 @@ const App = () => {
                 return diffDays <= 1 && diffDays >= 0;
               }).length;
               
+              const totalOwed = borrowedBooks.reduce((sum,b)=> sum + (b.currentRent||0),0);
               return (
                 <>
-                  <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333" }}>{borrowedBooks.length} Books</p>
-                  <p style={{ color: "#666" }}>{dueTomorrow} Due Soon</p>
+                  <p style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#333", marginBottom:'6px' }}>{borrowedBooks.length} Books</p>
+                  <p style={{ color: "#666", margin:'4px 0' }}>{dueTomorrow} Due Soon</p>
+                  <p style={{ color:'#FF9800', fontWeight:'bold', margin:'4px 0' }}>Owed Now: ₹{totalOwed}</p>
                   <button
                     onClick={() => setShowBorrowedBooks(true)}
                     style={{
@@ -2614,7 +2644,7 @@ const App = () => {
                       borderRadius: '4px',
                       cursor: 'pointer',
                       fontSize: '0.9rem',
-                      marginTop: '10px'
+                      marginTop: '8px'
                     }}
                   >
                     View Borrowed Books
