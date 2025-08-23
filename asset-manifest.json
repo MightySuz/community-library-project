@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/community-library-project/static/css/main.f0102e04.css",
+    "main.js": "/community-library-project/static/js/main.25fcb81a.js",
+    "index.html": "/community-library-project/index.html",
+    "main.f0102e04.css.map": "/community-library-project/static/css/main.f0102e04.css.map",
+    "main.25fcb81a.js.map": "/community-library-project/static/js/main.25fcb81a.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.f0102e04.css",
+    "static/js/main.25fcb81a.js"
+  ]
+}
