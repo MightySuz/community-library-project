@@ -2,7 +2,7 @@
   "name": "community-library-web",
   "version": "1.0.0",
   "description": "Web app for Community Library",
-  "homepage": "https://yourusername.github.io/community-library",
+  "homepage": "https://MightySuz.github.io/community-library-project",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.11.1",
