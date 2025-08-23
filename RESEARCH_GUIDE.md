@@ -1,52 +1,75 @@
-# 🌐 Community Library Research Prototype
+# 🌐 Community Library Research Platform - Complete Guide
 
-**Live Demo URL:** `https://community-library-research.netlify.app` *(Will be available after deployment)*
+**Live Demo URL:** `https://sujaljaiswal.github.io/community-library-project/`
 
 ## 🎯 Research Participant Guide
 
-### Demo Login Credentials:
-- **Username:** `john_doe` | **Community:** Green Valley Society
-- **Username:** `sunset_user` | **Community:** Sunset Apartments  
-- **Username:** `metro_user` | **Community:** Metro Heights
-- **Password:** `password` (or any password - demo mode)
+### 👤 **User Types & Access**
 
-### 🔐 OTP Verification:
-For secure operations (book deletion, wallet transactions), use OTP: **1234**
+#### **Regular Users (Residents)**
+- **Community Access:** `john_doe`, `sarovar_user`, `cyberzon_user`
+- **Password:** Any password (demo mode)
+- **Features:** Community-specific book management, rental tracking
+
+#### **Super Admin**
+- **Username:** `admin@aparna.com`
+- **Password:** `admin123`
+- **Features:** All communities + management tools
+
+### 🏘️ **Community Structure** (Updated)
+- **Aparna Sarovar Zenith** (Primary community)
+- **Aparna Sarovar** (Secondary community) 
+- **Aparna Cyberzon** (Tertiary community)
+
+### 🔐 **OTP Verification**
+For secure operations (book deletion, admin actions), use OTP: **1234**
 
 ---
 
-## 📱 Features to Test
+## 📱 **Features to Test**
 
-### 1. **User Authentication**
-- [x] Login with username/password
-- [x] Community-based access control
+### 1. **Enhanced Authentication & Access Control**
+- [x] Username/email-based login
+- [x] Community auto-assignment based on email/username
+- [x] Role-based access (Resident vs Super Admin)
 - [x] OTP verification for sensitive operations
 
-### 2. **Book Management**
-- [x] Browse books in your community
-- [x] Add new books to your collection
-- [x] Search books by title/author
-- [x] Request books from other users
-- [x] Manage book availability
+### 2. **Advanced Book Management**
+- [x] **Bulk Book Registration:** Add multiple books at once
+- [x] **Google Books API:** Automatic book covers and metadata
+- [x] **ISBN Barcode Scanning:** Camera-based book addition
+- [x] **Block/Apartment Fields:** Enhanced user profiles
+- [x] Browse books with visual covers
+- [x] Search and filter functionality
+- [x] Community-specific book collections
 
-### 3. **Community Isolation**
-- [x] Users only see books from their community
-- [x] Cross-community restrictions
-- [x] Community-specific user experience
+### 3. **Community Isolation & Data Security**
+- [x] Complete data separation between communities
+- [x] Users only see their community's books
+- [x] Cross-community access restrictions
+- [x] Secure community assignment
 
-### 4. **Digital Wallet**
-- [x] View wallet balance (INR currency)
-- [x] Transaction history
-- [x] OTP-protected operations
+### 4. **Super Admin Dashboard**
+- [x] **User Management:** Verify/suspend users across communities
+- [x] **All Books Management:** Complete inventory oversight
+- [x] **Community Analytics:** Statistics and performance metrics
+- [x] Real-time data updates and controls
 
-### 5. **Mobile Responsive**
-- [x] Works on smartphones
-- [x] Tablet-friendly interface
-- [x] Desktop optimization
+### 5. **Financial & Transaction Features**
+- [x] INR currency throughout the platform
+- [x] Daily rental pricing format (₹50/day)
+- [x] Earnings tracking per book owner
+- [x] Community-wise financial analytics
+
+### 6. **Mobile & User Experience**
+- [x] Responsive design for all devices
+- [x] Camera integration for barcode scanning
+- [x] Intuitive navigation and user interface
+- [x] Visual book covers enhance browsing
 
 ---
 
-## 🧪 Research Scenarios
+## 🧪 **Research Scenarios**
 
 ### Scenario 1: New User Registration
 1. Click "Register here"

@@ -303,14 +303,14 @@ const App = () => {
     
     // Sample books data with community filtering
     const sampleBooks = [
-      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", ownerEmail: "john@example.com", available: true, price: "₹50/day", community: "Green Valley Society", isbn: "9780060935467", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-20" },
-      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", ownerEmail: "sarah@example.com", available: false, price: "₹40/day", community: "Green Valley Society", isbn: "9780451524935", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-19" },
-      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", ownerEmail: "emma@example.com", available: true, price: "₹60/day", community: "Green Valley Society", isbn: "9780141439518", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-18" },
-      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", ownerEmail: "mike@sunset.com", available: true, price: "₹45/day", community: "Sunset Apartments", isbn: "9780743273565", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-17" },
-      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", ownerEmail: "lisa@example.com", available: true, price: "₹80/day", community: "Green Valley Society", isbn: "9780439708180", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-16" },
-      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", ownerEmail: "david@sunset.com", available: false, price: "₹55/day", community: "Sunset Apartments", isbn: "9780316769174", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-15" },
-      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", ownerEmail: "priya@example.com", available: true, price: "₹35/day", community: "Green Valley Society", isbn: "9788173711466", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-14" },
-      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", ownerEmail: "raj@example.com", available: true, price: "₹30/day", community: "Green Valley Society", isbn: "9788129116482", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-13" },
+      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", ownerEmail: "john@example.com", available: true, price: "₹50/day", community: "Aparna Sarovar Zenith", isbn: "9780060935467", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-20" },
+      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", ownerEmail: "sarah@example.com", available: false, price: "₹40/day", community: "Aparna Sarovar Zenith", isbn: "9780451524935", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-19" },
+      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", ownerEmail: "emma@example.com", available: true, price: "₹60/day", community: "Aparna Sarovar Zenith", isbn: "9780141439518", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-18" },
+      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", ownerEmail: "mike@sarovar.com", available: true, price: "₹45/day", community: "Aparna Sarovar", isbn: "9780743273565", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-17" },
+      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", ownerEmail: "lisa@example.com", available: true, price: "₹80/day", community: "Aparna Sarovar Zenith", isbn: "9780439708180", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-16" },
+      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", ownerEmail: "david@cyberzon.com", available: false, price: "₹55/day", community: "Aparna Cyberzon", isbn: "9780316769174", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-15" },
+      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", ownerEmail: "priya@example.com", available: true, price: "₹35/day", community: "Aparna Sarovar Zenith", isbn: "9788173711466", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-14" },
+      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", ownerEmail: "raj@example.com", available: true, price: "₹30/day", community: "Aparna Sarovar Zenith", isbn: "9788129116482", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-13" },
     ];
 
     // Combine sample books with community books from actual users
@@ -859,7 +859,7 @@ const App = () => {
             textAlign: 'center'
           }}>
             <p style={{ margin: 0, color: '#856404' }}>
-              📚 Showing books from Green Valley Society (Demo). Please{' '}
+              📚 Showing books from Aparna Sarovar Zenith (Demo). Please{' '}
               <button 
                 onClick={() => navigate('login')}
                 style={{ background: 'none', border: 'none', color: '#2E7D32', textDecoration: 'underline', cursor: 'pointer' }}
@@ -957,6 +957,31 @@ const App = () => {
     const [otpAction, setOtpAction] = useState(null);
     const [otpData, setOtpData] = useState(null);
     const [otp, setOtp] = useState('');
+    const [showAdminUsers, setShowAdminUsers] = useState(false);
+    const [showAdminBooks, setShowAdminBooks] = useState(false);
+    const [showAdminCommunities, setShowAdminCommunities] = useState(false);
+
+    // Get books data for admin - combining sample books and user books
+    const sampleBooks = [
+      { id: 1, title: "To Kill a Mockingbird", author: "Harper Lee", owner: "John D.", ownerEmail: "john@example.com", available: true, price: "₹50/day", community: "Aparna Sarovar Zenith", isbn: "9780060935467", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-20" },
+      { id: 2, title: "1984", author: "George Orwell", owner: "Sarah M.", ownerEmail: "sarah@example.com", available: false, price: "₹40/day", community: "Aparna Sarovar Zenith", isbn: "9780451524935", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-19" },
+      { id: 3, title: "Pride and Prejudice", author: "Jane Austen", owner: "Emma W.", ownerEmail: "emma@example.com", available: true, price: "₹60/day", community: "Aparna Sarovar Zenith", isbn: "9780141439518", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-18" },
+      { id: 4, title: "The Great Gatsby", author: "F. Scott Fitzgerald", owner: "Mike R.", ownerEmail: "mike@sarovar.com", available: true, price: "₹45/day", community: "Aparna Sarovar", isbn: "9780743273565", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-17" },
+      { id: 5, title: "Harry Potter", author: "J.K. Rowling", owner: "Lisa K.", ownerEmail: "lisa@example.com", available: true, price: "₹80/day", community: "Aparna Sarovar Zenith", isbn: "9780439708180", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-16" },
+      { id: 6, title: "The Catcher in the Rye", author: "J.D. Salinger", owner: "David L.", ownerEmail: "david@cyberzon.com", available: false, price: "₹55/day", community: "Aparna Cyberzon", isbn: "9780316769174", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-15" },
+      { id: 7, title: "Wings of Fire", author: "A.P.J. Abdul Kalam", owner: "Priya S.", ownerEmail: "priya@example.com", available: true, price: "₹35/day", community: "Aparna Sarovar Zenith", isbn: "9788173711466", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-14" },
+      { id: 8, title: "Gitanjali", author: "Rabindranath Tagore", owner: "Raj K.", ownerEmail: "raj@example.com", available: true, price: "₹30/day", community: "Aparna Sarovar Zenith", isbn: "9788129116482", imageUrl: "", earnings: "₹0", dateAdded: "2025-08-13" },
+    ];
+
+    // Get all user books
+    const allUserBooks = Object.values(allUsers).flatMap(userData => userData.books || []);
+    const allBooksForAdmin = [...sampleBooks, ...allUserBooks];
+
+    const communities = [
+      "Aparna Sarovar Zenith",
+      "Aparna Sarovar", 
+      "Aparna Cyberzon"
+    ];
 
     if (!user) {
       return (
@@ -981,15 +1006,13 @@ const App = () => {
       );
     }
 
-    // Combine sample books with user's added books
-    const sampleBooks = [
+    // Get current user's books
+    const currentUserBooks = getCurrentUserBooks();
+    const myBooksSample = [
       { id: 'sample1', title: "Wings of Fire", author: "A.P.J. Abdul Kalam", status: "available", borrower: null, price: "₹35/day", earnings: "₹140", dateAdded: "15/08/2025", owner: user?.name, ownerEmail: user?.email },
       { id: 'sample2', title: "Gitanjali", author: "Rabindranath Tagore", status: "borrowed", borrower: "Raj K.", price: "₹30/day", earnings: "₹90", dateAdded: "10/08/2025", owner: user?.name, ownerEmail: user?.email },
     ];
-
-    // Get current user's books
-    const currentUserBooks = getCurrentUserBooks();
-    const allMyBooks = [...sampleBooks, ...currentUserBooks];
+    const allMyBooks = [...myBooksSample, ...currentUserBooks];
 
     const handleOtpVerification = () => {
       if (otp === '1234') {
@@ -1247,11 +1270,330 @@ const App = () => {
       </div>
     );
 
+    const AdminUsersModal = () => (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px',
+          borderRadius: '8px',
+          maxWidth: '1000px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, color: '#333' }}>👥 User Management</h3>
+            <button
+              onClick={() => setShowAdminUsers(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer'
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Email</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Community</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Books</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Status</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(allUsers).map(([email, userData]) => (
+                  <tr key={email}>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{email}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{userData.community}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{userData.books?.length || 0}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.8rem',
+                        backgroundColor: userData.verified !== false ? '#e8f5e8' : '#ffebee',
+                        color: userData.verified !== false ? '#2e7d32' : '#d32f2f'
+                      }}>
+                        {userData.verified !== false ? 'Verified' : 'Pending'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                      <button
+                        style={{
+                          backgroundColor: userData.verified !== false ? '#d32f2f' : '#2e7d32',
+                          color: 'white',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                        onClick={() => {
+                          const updatedUsers = { ...allUsers };
+                          updatedUsers[email] = { 
+                            ...userData, 
+                            verified: userData.verified === false ? true : false 
+                          };
+                          setAllUsers(updatedUsers);
+                          localStorage.setItem('communityLibraryAllUsers', JSON.stringify(updatedUsers));
+                        }}
+                      >
+                        {userData.verified !== false ? 'Suspend' : 'Verify'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+
+    const AdminBooksModal = () => (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px',
+          borderRadius: '8px',
+          maxWidth: '1000px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, color: '#333' }}>📚 All Books Management</h3>
+            <button
+              onClick={() => setShowAdminBooks(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer'
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{ color: '#666', margin: 0 }}>
+              Total Books: {allBooksForAdmin.length} | Available: {allBooksForAdmin.filter(b => b.available).length} | 
+              Borrowed: {allBooksForAdmin.filter(b => !b.available).length}
+            </p>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Title</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Author</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Owner</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Community</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Status</th>
+                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allBooksForAdmin.map(book => (
+                  <tr key={book.id}>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{book.title}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{book.author}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{book.owner}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{book.community}</td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.8rem',
+                        backgroundColor: book.available ? '#e8f5e8' : '#ffebee',
+                        color: book.available ? '#2e7d32' : '#d32f2f'
+                      }}>
+                        {book.available ? 'Available' : 'Borrowed'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{book.price}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+
+    const AdminCommunitiesModal = () => (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px',
+          borderRadius: '8px',
+          maxWidth: '800px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, color: '#333' }}>🏘️ Community Management</h3>
+            <button
+              onClick={() => setShowAdminCommunities(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer'
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ display: 'grid', gap: '20px' }}>
+            {communities.map(community => {
+              const communityUsers = Object.values(allUsers).filter(u => u.community === community);
+              const communityBooks = allBooksForAdmin.filter(b => b.community === community);
+              
+              return (
+                <div key={community} style={{
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  padding: '20px',
+                  backgroundColor: '#fafafa'
+                }}>
+                  <h4 style={{ margin: '0 0 15px 0', color: '#333' }}>{community}</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', fontSize: '0.9rem' }}>
+                    <div>
+                      <strong>👥 Users:</strong> {communityUsers.length}
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Verified: {communityUsers.filter(u => u.verified !== false).length}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>📚 Books:</strong> {communityBooks.length}
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Available: {communityBooks.filter(b => b.available).length}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>💰 Activity:</strong>
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Total Earnings: ₹{communityBooks.reduce((sum, book) => sum + parseInt(book.earnings?.replace('₹', '') || '0'), 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+
     return (
       <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
         <h2 style={{ fontSize: "2rem", marginBottom: "30px", color: "#333" }}>
           Dashboard - Welcome {user.name}!
+          {user.role === 'superadmin' && <span style={{ color: '#d32f2f', fontSize: '1rem', marginLeft: '10px' }}>(Super Admin)</span>}
         </h2>
+        
+        {user.role === 'superadmin' && (
+          <div style={{
+            backgroundColor: '#fff3e0',
+            border: '2px solid #ff9800',
+            borderRadius: '8px',
+            padding: '20px',
+            marginBottom: '30px'
+          }}>
+            <h3 style={{ color: '#e65100', marginTop: 0 }}>🔧 Super Admin Controls</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+              <button
+                onClick={() => setShowAdminUsers(true)}
+                style={{
+                  backgroundColor: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                👥 Manage Users
+              </button>
+              <button
+                onClick={() => setShowAdminBooks(true)}
+                style={{
+                  backgroundColor: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                📚 All Books
+              </button>
+              <button
+                onClick={() => setShowAdminCommunities(true)}
+                style={{
+                  backgroundColor: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                🏘️ Communities
+              </button>
+            </div>
+          </div>
+        )}
         
         {userCommunity && (
           <div style={{
@@ -1387,6 +1729,9 @@ const App = () => {
 
         {showMyBooks && <MyBooksModal />}
         {showOtpModal && <OtpModal />}
+        {showAdminUsers && <AdminUsersModal />}
+        {showAdminBooks && <AdminBooksModal />}
+        {showAdminCommunities && <AdminCommunitiesModal />}
       </div>
     );
   };
@@ -1416,14 +1761,20 @@ const App = () => {
         };
         
         // Simulate community assignment based on email domain or username
-        let community = "Green Valley Society";
-        if (formData.emailOrUsername.includes('sunset') || formData.emailOrUsername === 'sunset_user') {
-          community = "Sunset Apartments";
-        } else if (formData.emailOrUsername.includes('metro') || formData.emailOrUsername === 'metro_user') {
-          community = "Metro Heights";
+        let community = "Aparna Sarovar Zenith";
+        let role = "resident";
+        
+        if (formData.emailOrUsername === 'admin@aparna.com' && formData.password === 'admin123') {
+          community = "All";
+          role = "superadmin";
+        } else if (formData.emailOrUsername.includes('sarovar') || formData.emailOrUsername === 'sarovar_user') {
+          community = "Aparna Sarovar";
+        } else if (formData.emailOrUsername.includes('cyberzon') || formData.emailOrUsername === 'cyberzon_user') {
+          community = "Aparna Cyberzon";
         }
         
         userData.community = community;
+        userData.role = role;
         
         // Add demo user to allUsers if not exists
         setAllUsers(prev => ({
@@ -1561,8 +1912,10 @@ const App = () => {
           }}>
             <p style={{ margin: 0, fontSize: '0.9rem', color: '#2E7D32' }}>
               <strong>Demo accounts:</strong><br/>
-              Username: <strong>john_doe</strong> → Green Valley Society<br/>
-              Username: <strong>sunset_user</strong> → Sunset Apartments<br/>
+              Username: <strong>john_doe</strong> → Aparna Sarovar Zenith<br/>
+              Username: <strong>sarovar_user</strong> → Aparna Sarovar<br/>
+              Username: <strong>cyberzon_user</strong> → Aparna Cyberzon<br/>
+              Username: <strong>admin@aparna.com</strong> → Super Admin (All Communities)<br/>
               Password: <strong>any</strong>
             </p>
           </div>
@@ -1601,12 +1954,13 @@ const App = () => {
     });
 
     const communities = [
-      'Green Valley Society',
-      'Sunset Apartments',
-      'Metro Heights',
-      'Garden View Complex',
-      'Royal Residency',
-      'Other'
+      'Aparna Sarovar Zenith',
+      'Aparna Sarovar',
+      'Aparna Cyberzon',
+      'Aparna Cyberlife',
+      'Aparna Cybercommune',
+      'Aparna Sarovar Zicon',
+      'Aparna Sarovar Grande'
     ];
 
     const handleSubmit = (e) => {
