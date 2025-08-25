@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { getBooks as fetchBackendBooks } from './apiClient';
+import { getBooks as fetchBackendBooks, createBook, createRequest, approveRequest, returnRequest } from './apiClient';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState("home");
@@ -9,6 +9,9 @@ const App = () => {
   const [bookRequests, setBookRequests] = useState({}); // Store all book requests (indexed by ownerEmail -> bookId)
   const [backendBooks, setBackendBooks] = useState([]);
   const [backendBooksLoaded, setBackendBooksLoaded] = useState(false);
+  const [backendBooksError, setBackendBooksError] = useState(null);
+  const [creatingBook, setCreatingBook] = useState(false);
+  const [createBookError, setCreateBookError] = useState(null);
   
   // Define state for modals
   const [showBorrowedBooks, setShowBorrowedBooks] = useState(false);
@@ -92,7 +95,7 @@ const App = () => {
         const items = await fetchBackendBooks();
         setBackendBooks(items);
       } catch (e) {
-        console.warn('Failed to load backend books:', e.message);
+        setBackendBooksError(e.message);
       } finally {
         setBackendBooksLoaded(true);
       }
@@ -120,36 +123,54 @@ const App = () => {
   };
 
   // Add book to current user's collection
-  const addBookToUser = (bookData) => {
+  const addBookToUser = async (bookData) => {
     if (!user) return;
-    
-    const newBook = {
-      ...bookData,
-      id: Date.now() + Math.random(),
-      owner: user.name,
-      ownerEmail: user.email,
-      community: userCommunity,
-      dateAdded: new Date().toLocaleDateString(),
-      earnings: '₹0',
-      available: true,
-  dailyRate: Number(bookData.price) || 0,
-  maxRentalDays: bookData.maxRentalDays || 14,
-      price: bookData.price || '₹10/day'
-    };
-
-    setAllUsers(prev => ({
-      ...prev,
-      [user.email]: {
-        ...prev[user.email],
-        books: [...(prev[user.email]?.books || []), newBook]
-      }
-    }));
-    
-    return newBook;
+    // Attempt backend creation first; fall back to local if fails
+    setCreatingBook(true); setCreateBookError(null);
+    try {
+      const payload = {
+        title: bookData.title,
+        author: bookData.author || 'Unknown',
+        barcode: bookData.barcode || (bookData.isbn || (`TEMP-${Date.now()}`)),
+        isbn: bookData.isbn || '',
+        genre: bookData.genre || 'General',
+        description: bookData.description || '',
+        rental: { pricePerDay: Number(bookData.price)||0, maxRentalDays: bookData.maxRentalDays||14 },
+        location: { community: userCommunity, address: '' }
+      };
+      const created = await createBook(payload);
+      // Refresh list (simplest: refetch)
+      try { setBackendBooks(await fetchBackendBooks()); } catch(_){}
+      return created;
+    } catch (e) {
+      setCreateBookError(e.message);
+      // Local fallback
+      const newBook = {
+        ...bookData,
+        id: Date.now() + Math.random(),
+        owner: user.name,
+        ownerEmail: user.email,
+        community: userCommunity,
+        dateAdded: new Date().toLocaleDateString(),
+        earnings: '₹0',
+        available: true,
+        dailyRate: Number(bookData.price) || 0,
+        maxRentalDays: bookData.maxRentalDays || 14,
+        price: bookData.price || '₹10/day'
+      };
+      setAllUsers(prev => ({
+        ...prev,
+        [user.email]: {
+          ...prev[user.email],
+          books: [...(prev[user.email]?.books || []), newBook]
+        }
+      }));
+      return newBook;
+    } finally { setCreatingBook(false); }
   };
   
   // Request a book from another user
-  const requestBook = (book) => {
+  const requestBook = async (book) => {
     if (!user) {
       alert('Please log in to request books');
       navigate('login');
@@ -176,33 +197,40 @@ const App = () => {
       return false;
     }
     
-    // Create a new request
+    // Try backend first
+    let backendRequestId = null;
+    try {
+      // naive rental window: today to +7 days
+      const start = new Date();
+      const end = new Date(Date.now() + 7*24*3600*1000);
+      const created = await createRequest({ bookId: book._id || book.id, startDate: start, endDate: end });
+      backendRequestId = created._id;
+    } catch (e) {
+      console.warn('Backend request create failed, falling back to local:', e.message);
+    }
+
     const newRequest = {
       requesterName: user.name,
       requesterEmail: user.email,
       requestDate: new Date().toISOString(),
       status: 'pending',
-      message: `Hello, I would like to borrow "${book.title}" by ${book.author}.`
+      message: `Hello, I would like to borrow "${book.title}" by ${book.author}.`,
+      requestId: backendRequestId || `LOCAL-${Date.now()}`,
+      bookId: book._id || book.id
     };
-    
-    // Update bookRequests state
+
     const updatedRequests = { ...bookRequests };
-    if (!updatedRequests[book.ownerEmail]) {
-      updatedRequests[book.ownerEmail] = {};
-    }
-    
+    if (!updatedRequests[book.ownerEmail]) updatedRequests[book.ownerEmail] = {};
     updatedRequests[book.ownerEmail][book.id] = newRequest;
     setBookRequests(updatedRequests);
-    
-  // Saved automatically by effect, but write once for immediate availability to other tabs
-  localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
-    
-    alert(`Request sent for "${book.title}". The owner will be notified.`);
+    localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
+
+    alert(`Request sent for "${book.title}"${backendRequestId ? '' : ' (stored locally)'}.`);
     return true;
   };
   
   // Complete checkout for a book request
-  const completeCheckout = (bookId, requesterId) => {
+  const completeCheckout = async (bookId, requesterId) => {
     if (!user || bookId == null || !requesterId) return false;
     
     // Get the current user's books
@@ -249,9 +277,18 @@ const App = () => {
       updatedRequests[userEmail] = {};
     }
     
+    // Try backend approval if we have backend request id
+    if (requesterRequest.requestId && !requesterRequest.requestId.startsWith('LOCAL-')) {
+      try {
+        await approveRequest(requesterRequest.requestId);
+      } catch (e) {
+        console.warn('Backend approve failed, continuing local:', e.message);
+      }
+    }
+
     updatedRequests[userEmail][bookId] = {
       ...requesterRequest,
-      status: 'borrowed', // normalize status expected by UI sections
+      status: 'borrowed',
       checkoutDate: new Date().toISOString(),
       approvalDate: new Date().toISOString()
     };
@@ -280,7 +317,7 @@ const App = () => {
   };
   
   // Complete return for a borrowed book
-  const completeReturn = (bookId) => {
+  const completeReturn = async (bookId) => {
     if (!user || !bookId) return false;
     
     // Get the current user's books
@@ -325,12 +362,15 @@ const App = () => {
     // Update request status
     const updatedRequests = { ...bookRequests };
     if (updatedRequests[userEmail] && updatedRequests[userEmail][bookId]) {
+      const reqObj = updatedRequests[userEmail][bookId];
+      if (reqObj.requestId && !reqObj.requestId.startsWith('LOCAL-')) {
+        try { await returnRequest(reqObj.requestId); } catch(e){ console.warn('Backend return failed, keeping local:', e.message); }
+      }
       updatedRequests[userEmail][bookId] = {
-        ...updatedRequests[userEmail][bookId],
+        ...reqObj,
         status: 'completed',
         returnDate: new Date().toISOString()
       };
-      
       setBookRequests(updatedRequests);
       localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
     }
@@ -664,6 +704,12 @@ const App = () => {
       book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       book.author.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const backendStatusBanner = !backendBooksLoaded ? (
+      <div style={{padding:'6px 12px', background:'#fff3cd', border:'1px solid #ffe58f', borderRadius:4, marginBottom:12, fontSize:12}}>Loading books from server...</div>
+    ) : backendBooksError ? (
+      <div style={{padding:'6px 12px', background:'#fdecea', border:'1px solid #f5c2c7', borderRadius:4, marginBottom:12, fontSize:12}}>Server books unavailable ({backendBooksError}). Showing local only.</div>
+    ) : null;
 
     const AddBookForm = () => {
       const [bookData, setBookData] = useState({

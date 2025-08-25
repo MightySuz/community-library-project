@@ -32,13 +32,19 @@ router.post('/', auth, async (req,res) => {
 
 // List my requests (borrower)
 router.get('/mine', auth, async (req,res)=>{
-  const items = await BookRequest.find({ borrower: req.user.userId }).populate('book','title author');
+  const items = await BookRequest.find({ borrower: req.user.userId })
+    .populate('book','title author')
+    .populate('borrower','fullName email')
+    .populate('publisher','fullName email');
   res.json({success:true,data:{items}});
 });
 
 // Publisher pending requests for their books
 router.get('/publisher/pending', auth, async (req,res)=>{
-  const items = await BookRequest.find({ publisher: req.user.userId, status:'pending' }).populate('book','title author');
+  const items = await BookRequest.find({ publisher: req.user.userId, status:'pending' })
+    .populate('book','title author')
+    .populate('borrower','fullName email')
+    .populate('publisher','fullName email');
   res.json({success:true,data:{items}});
 });
 
