@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { getBooks as fetchBackendBooks, createBook, createRequest, approveRequest, returnRequest } from './apiClient';
+import { getBooks as fetchBackendBooks, createBook, createRequest, approveRequest, returnRequest, loginUser } from './apiClient';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState("home");
@@ -2898,58 +2898,65 @@ const App = () => {
 
   const LoginPage = () => {
     const [formData, setFormData] = useState({ emailOrUsername: '', password: '', mobile: '' });
-    const [loginMethod, setLoginMethod] = useState('standard'); // 'standard' or 'mobile'
+    const [loginMethod, setLoginMethod] = useState('standard');
+    const [loginError, setLoginError] = useState(null);
+    const [loggingIn, setLoggingIn] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
       e.preventDefault();
-      
-      // Check if user exists in allUsers
-      const existingUser = allUsers[formData.emailOrUsername];
-      if (existingUser && existingUser.password === formData.password) {
-        // User exists and password matches
-        setUser(existingUser);
-        setUserCommunity(existingUser.community);
-        localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(existingUser));
-        alert(`Login successful! Welcome back to ${existingUser.community}`);
-        navigate('dashboard');
-      } else {
-        // For demo purposes, allow login with demo accounts
+      setLoginError(null);
+      setLoggingIn(true);
+      try {
+        // Attempt backend login first (treat identifier as email)
+        try {
+          const backend = await loginUser(formData.emailOrUsername, formData.password);
+          if (backend?.tokens?.accessToken) {
+            localStorage.setItem('communityLibraryJwt', backend.tokens.accessToken);
+            const u = backend.user;
+            const mapped = { name: u.fullName || u.email, email: u.email, community: u.communityName || u.community };
+            setUser(mapped);
+            setUserCommunity(mapped.community);
+            localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(mapped));
+            alert('Backend login successful');
+            navigate('dashboard');
+            return;
+          }
+        } catch (be) {
+          console.warn('Backend login failed, falling back to local/demo:', be.message);
+        }
+
+        // Local existing user path
+        const existingUser = allUsers[formData.emailOrUsername];
+        if (existingUser && (!existingUser.password || existingUser.password === formData.password)) {
+          setUser(existingUser);
+            setUserCommunity(existingUser.community);
+            localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(existingUser));
+            alert(`Local login successful for ${existingUser.community}`);
+            navigate('dashboard');
+            return;
+        }
+
+        // Demo fallback
         const userData = { 
           name: formData.emailOrUsername.includes('@') ? formData.emailOrUsername.split('@')[0] : formData.emailOrUsername, 
           email: formData.emailOrUsername.includes('@') ? formData.emailOrUsername : `${formData.emailOrUsername}@example.com`,
           mobile: formData.mobile 
         };
-        
-        // Simulate community assignment based on email domain or username
-        let community = "Aparna Sarovar Zenith";
-        let role = "resident";
-        
-        if (formData.emailOrUsername === 'admin@aparna.com' && formData.password === 'admin123') {
-          community = "All";
-          role = "superadmin";
-        } else if (formData.emailOrUsername.includes('sarovar') || formData.emailOrUsername === 'sarovar_user') {
-          community = "Aparna Sarovar";
-        } else if (formData.emailOrUsername.includes('cyberzon') || formData.emailOrUsername === 'cyberzon_user') {
-          community = "Aparna Cyberzon";
-        }
-        
-        userData.community = community;
-        userData.role = role;
-        
-        // Add demo user to allUsers if not exists
-        setAllUsers(prev => ({
-          ...prev,
-          [userData.email]: {
-            ...userData,
-            books: []
-          }
-        }));
-        
-        setUser(userData);
-        setUserCommunity(community);
+        let community = 'Aparna Sarovar Zenith';
+        let role = 'resident';
+        if (formData.emailOrUsername === 'admin@aparna.com' && formData.password === 'admin123') { community = 'All'; role='superadmin'; }
+        else if (formData.emailOrUsername.includes('sarovar') || formData.emailOrUsername === 'sarovar_user') community = 'Aparna Sarovar';
+        else if (formData.emailOrUsername.includes('cyberzon') || formData.emailOrUsername === 'cyberzon_user') community = 'Aparna Cyberzon';
+        userData.community = community; userData.role = role;
+        setAllUsers(prev => ({ ...prev, [userData.email]: { ...userData, books: [] } }));
+        setUser(userData); setUserCommunity(community);
         localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(userData));
-        alert(`Login successful! Welcome to ${community}`);
+        alert(`Demo login: ${community}`);
         navigate('dashboard');
+      } catch (err) {
+        setLoginError(err.message);
+      } finally {
+        setLoggingIn(false);
       }
     };
 
@@ -2997,7 +3004,7 @@ const App = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+  <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <input
             type="text"
             placeholder={loginMethod === 'standard' ? "Username or Email" : "Email"}
@@ -3047,18 +3054,20 @@ const App = () => {
           
           <button
             type="submit"
+            disabled={loggingIn}
             style={{
-              backgroundColor: "#2E7D32",
-              color: "white",
-              border: "none",
-              padding: "12px",
-              fontSize: "1rem",
-              borderRadius: "4px",
-              cursor: "pointer"
+              backgroundColor: loggingIn ? '#94c9a0' : '#2E7D32',
+              color: 'white',
+              border: 'none',
+              padding: '12px',
+              fontSize: '1rem',
+              borderRadius: '4px',
+              cursor: loggingIn ? 'not-allowed' : 'pointer'
             }}
           >
-            {loginMethod === 'standard' ? 'Login' : 'Send OTP & Login'}
+            {loginMethod === 'standard' ? (loggingIn ? 'Logging in...' : 'Login (Backend/Local)') : 'Send OTP & Login'}
           </button>
+          {loginError && <div style={{color:'#c62828', fontSize:'0.8rem'}}>{loginError}</div>}
         </form>
         
         {loginMethod === 'standard' && (

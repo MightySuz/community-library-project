@@ -53,3 +53,8 @@ export async function returnRequest(id) {
   const data = await apiFetch(`/requests/${id}/return`, { method:'POST' });
   return data.data.request;
 }
+
+export async function loginUser(email, password) {
+  const data = await apiFetch('/auth/login', { method:'POST', body: JSON.stringify({ email, password }) });
+  return data.data; // { user, tokens, message }
+}
