@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { getBooks as fetchBackendBooks } from './apiClient';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState("home");
@@ -6,6 +7,8 @@ const App = () => {
   const [userCommunity, setUserCommunity] = useState(null);
   const [allUsers, setAllUsers] = useState({}); // Store all users and their books
   const [bookRequests, setBookRequests] = useState({}); // Store all book requests (indexed by ownerEmail -> bookId)
+  const [backendBooks, setBackendBooks] = useState([]);
+  const [backendBooksLoaded, setBackendBooksLoaded] = useState(false);
   
   // Define state for modals
   const [showBorrowedBooks, setShowBorrowedBooks] = useState(false);
@@ -63,18 +66,38 @@ const App = () => {
     return allUsers[user.email].books || [];
   };
 
-  // Get all books from users in the same community
+  // Get all books from users in the same community (merge backend + local)
   const getCommunityBooks = () => {
     if (!userCommunity) return [];
-    
-    const communityBooks = [];
+    const local = [];
     Object.values(allUsers).forEach(userData => {
       if (userData.community === userCommunity && userData.books) {
-        communityBooks.push(...userData.books);
+        local.push(...userData.books);
       }
     });
-    return communityBooks;
+    const remote = backendBooks.filter(b => (b.location?.community || b.community) === userCommunity);
+    const seen = new Set();
+    const merged = [];
+    [...remote, ...local].forEach(b => {
+      const key = b.barcode || b.id;
+      if (!seen.has(key)) { seen.add(key); merged.push(b); }
+    });
+    return merged;
   };
+
+  // Initial backend fetch
+  useEffect(() => {
+    (async () => {
+      try {
+        const items = await fetchBackendBooks();
+        setBackendBooks(items);
+      } catch (e) {
+        console.warn('Failed to load backend books:', e.message);
+      } finally {
+        setBackendBooksLoaded(true);
+      }
+    })();
+  }, []);
   
   // Calculate rent for borrowed books
   const calculateRent = (borrowDate, dailyRate = 10, maxRentalDays = 14) => {
@@ -378,8 +401,14 @@ const App = () => {
         justifyContent: "space-between",
         alignItems: "center"
       }}>
-        <h1 style={{ margin: 0, cursor: "pointer" }} onClick={() => navigate("home")}>
-          📚 Community Library
+        <h1 style={{ margin: 0, cursor: "pointer", display:'flex', alignItems:'center', gap:'8px', fontFamily:'Segoe UI, sans-serif', letterSpacing:'0.5px' }} onClick={() => navigate("home")}>
+          <span style={{
+            display:'inline-flex',
+            width:40,height:40,justifyContent:'center',alignItems:'center',
+            background:'linear-gradient(135deg,#2E7D32,#66BB6A)',
+            borderRadius:'8px',fontSize:'1.2rem',fontWeight:'bold'
+          }}>CL</span>
+          <span style={{fontWeight:'600'}}>ComLib</span>
         </h1>
         <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <button 
@@ -477,7 +506,7 @@ const App = () => {
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
       <section style={{ textAlign: "center", marginBottom: "60px" }}>
         <h2 style={{ fontSize: "2.5rem", marginBottom: "20px", color: "#333" }}>
-          Welcome to Community Library
+          Welcome to ComLib
         </h2>
         <p style={{ fontSize: "1.2rem", color: "#666", marginBottom: "30px" }}>
           Share books, build connections, and discover your next great read in your local community.
@@ -2751,19 +2780,29 @@ const App = () => {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "30px" }}>
           <div>
             <h3 style={{ marginBottom: "20px", color: "#333" }}>Recent Activity</h3>
-            <div style={{ backgroundColor: "white", border: "1px solid #ddd", borderRadius: "8px", padding: "20px" }}>
-              <div style={{ borderBottom: "1px solid #eee", paddingBottom: "10px", marginBottom: "10px" }}>
-                <p><strong>Book Request:</strong> "1984" requested by Sarah M.</p>
-                <p style={{ color: "#666", fontSize: "0.9rem" }}>2 hours ago</p>
-              </div>
-              <div style={{ borderBottom: "1px solid #eee", paddingBottom: "10px", marginBottom: "10px" }}>
-                <p><strong>Payment Received:</strong> ₹90.00 for "Pride and Prejudice"</p>
-                <p style={{ color: "#666", fontSize: "0.9rem" }}>1 day ago</p>
-              </div>
-              <div>
-                <p><strong>Book Returned:</strong> "The Great Gatsby" returned by Mike R.</p>
-                <p style={{ color: "#666", fontSize: "0.9rem" }}>2 days ago</p>
-              </div>
+            <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '20px' }}>
+              {(() => {
+                const activities = [];
+                Object.entries(bookRequests).forEach(([ownerEmail, ownerReqs]) => {
+                  Object.entries(ownerReqs || {}).forEach(([bookId, req]) => {
+                    const book = (allUsers[ownerEmail]?.books||[]).find(b=> String(b.id)===String(bookId));
+                    if (!book) return;
+                    const title = book.title;
+                    activities.push({ time: req.requestDate, type:'Request', text: `${req.requesterName} requested "${title}"` });
+                    if (req.checkoutDate) activities.push({ time: req.checkoutDate, type:'Checkout', text: `Checkout: "${title}" to ${req.requesterName}` });
+                    if (req.returnDate) activities.push({ time: req.returnDate, type:'Return', text: `Returned: "${title}" by ${req.requesterName}` });
+                  });
+                });
+                activities.sort((a,b)=> new Date(b.time)-new Date(a.time));
+                const recent = activities.slice(0,5);
+                if (recent.length===0) return <p style={{margin:0,color:'#666',fontSize:'0.9rem'}}>No activity yet.</p>;
+                return recent.map((act,i)=>(
+                  <div key={i} style={{ borderBottom: i<recent.length-1?'1px solid #eee':'none', paddingBottom: i<recent.length-1?'10px':'0', marginBottom: i<recent.length-1?'10px':'0' }}>
+                    <p style={{margin:'0 0 4px 0', fontSize:'0.9rem'}}><strong>{act.type}:</strong> {act.text}</p>
+                    <p style={{margin:0, fontSize:'0.75rem', color:'#666'}}>{new Date(act.time).toLocaleString()}</p>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
 
@@ -3078,7 +3117,7 @@ const App = () => {
 
     return (
       <div style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
-        <h2 style={{ textAlign: "center", marginBottom: "30px", color: "#333" }}>Join Community Library</h2>
+  <h2 style={{ textAlign: "center", marginBottom: "30px", color: "#333" }}>Join ComLib</h2>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <input
             type="text"

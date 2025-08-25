@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema({
   // User Persona/Role
   persona: [{
     type: String,
-    enum: ['publisher', 'borrower'],
+    enum: ['publisher', 'borrower', 'admin'],
     required: true
   }],
   

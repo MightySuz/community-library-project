@@ -18,7 +18,9 @@
     "test:rental": "jest --testPathPattern=rental --testTimeout=30000",
     "test:integration": "jest tests/integration --testTimeout=30000",
     "test:unit": "jest tests/unit --testTimeout=30000",
-    "lint": "eslint src/"
+  "lint": "eslint src/",
+  "seed:admin": "node scripts/seedAdmin.js",
+  "seed:sample": "node scripts/seedSampleData.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

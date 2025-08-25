@@ -13,14 +13,21 @@ const PORT = process.env.PORT || 5000;
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 15000,
+  retryWrites: true,
+  tls: true,
+  // For modern Atlas deployments (optional but clearer)
+  serverApi: { version: '1', strict: false, deprecationErrors: false }
 })
-.then(() => {
-  console.log('✅ Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('❌ MongoDB connection error:', error);
-  process.exit(1);
-});
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error.message);
+    if (error.reason) console.error('Reason:', JSON.stringify(error.reason, null, 2));
+    console.error('Hint: Ensure your IP is whitelisted in Atlas, the URI has no leading/trailing spaces, and the cluster is in READY state.');
+    process.exit(1);
+  });
 
 // Middleware
 app.use(helmet());
@@ -46,6 +53,7 @@ app.use('/api/books', require('./routes/books'));
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/requests', require('./routes/requests'));
 // app.use('/api/publisher', require('./routes/publisher')); // Temporarily disabled
 // app.use('/api/borrower', require('./routes/borrower')); // Temporarily disabled
 // app.use('/api/rental', require('./routes/rental')); // Temporarily disabled
