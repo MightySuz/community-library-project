@@ -1089,7 +1089,7 @@ const App = () => {
           )}
         </div>
         
-        <div style={{ marginBottom: "30px" }}>
+        <div style={{ marginBottom: "12px" }}>
           <input
             type="text"
             placeholder="Search books or authors..."
@@ -1106,6 +1106,12 @@ const App = () => {
             }}
           />
         </div>
+        {backendStatusBanner}
+        {typeof window !== 'undefined' && window.location.hostname !== 'localhost' && /localhost/.test(window.__COMLIB_API_BASE||'') && (
+          <div style={{padding:'8px 12px', background:'#fff3cd', border:'1px solid #ffe58f', borderRadius:4, marginBottom:12, fontSize:12}}>
+            Backend not configured: site points to <code>localhost</code>. Deploy backend & rebuild with REACT_APP_API_URL.
+          </div>
+        )}
 
         {!user && (
           <div style={{
