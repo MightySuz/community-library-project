@@ -32,12 +32,39 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Middleware
 app.use(helmet());
 app.use(compression());
-app.use(cors());
+
+// Dynamic CORS: allow all in development; restrict in production if ALLOWED_ORIGINS set
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // non-browser or same-origin
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn('Blocked by CORS:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+// Root route (some free hosts ping this)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'Community Library API',
+    health: '/api/health',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
