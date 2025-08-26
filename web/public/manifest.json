@@ -1,0 +1,14 @@
+{
+  "short_name": "ComLib",
+  "name": "Community Library",
+  "icons": [
+    {"src": "favicon.svg", "sizes": "64x64 32x32 24x24 16x16", "type": "image/svg+xml"},
+    {"src": "logo192.svg", "type": "image/svg+xml", "sizes": "192x192"},
+    {"src": "logo512.svg", "type": "image/svg+xml", "sizes": "512x512"}
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2E7D32",
+  "background_color": "#ffffff",
+  "description": "Share, lend, and borrow books within your community." 
+}
