@@ -1,11 +1,13 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { getBooks as fetchBackendBooks, createBook, createRequest, approveRequest, returnRequest, loginUser } from './apiClient';
+import { BUILD_VERSION } from './version';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState("home");
   const [user, setUser] = useState(null);
   const [userCommunity, setUserCommunity] = useState(null);
-  const [allUsers, setAllUsers] = useState({}); // Store all users and their books
+  // Deprecated local user store removed (migrated to backend).
+  const [allUsers, setAllUsers] = useState({}); // retained only for legacy book objects until full backend migration
   const [bookRequests, setBookRequests] = useState({}); // Store all book requests (indexed by ownerEmail -> bookId)
   const [backendBooks, setBackendBooks] = useState([]);
   const [backendBooksLoaded, setBackendBooksLoaded] = useState(false);
@@ -25,10 +27,8 @@ const App = () => {
   
   // Load user data from localStorage on component mount
   useEffect(() => {
-    const savedUsers = localStorage.getItem('communityLibraryUsers');
-    if (savedUsers) {
-      setAllUsers(JSON.parse(savedUsers));
-    }
+  // Legacy local users disabled; purge stale key if present to avoid confusion
+  try { localStorage.removeItem('communityLibraryUsers'); } catch(_){ }
     
     const savedCurrentUser = localStorage.getItem('communityLibraryCurrentUser');
     if (savedCurrentUser) {
@@ -44,12 +44,14 @@ const App = () => {
     }
   }, []);
 
-  // Save user data to localStorage whenever allUsers changes
+  // One-time build + API base diagnostic log (will help verify deployment freshness)
   useEffect(() => {
-    if (Object.keys(allUsers).length > 0) {
-      localStorage.setItem('communityLibraryUsers', JSON.stringify(allUsers));
-    }
-  }, [allUsers]);
+    // eslint-disable-next-line no-console
+    console.log('[ComLib] Build version:', BUILD_VERSION, 'API_BASE:', process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
+  }, []);
+
+  // No longer persisting local allUsers; data comes from backend. Left intentionally blank.
+  useEffect(() => {}, [allUsers]);
   
   // Save book requests to localStorage whenever bookRequests changes
   useEffect(() => {
@@ -65,19 +67,19 @@ const App = () => {
 
   // Get current user's books
   const getCurrentUserBooks = () => {
-    if (!user || !allUsers[user.email]) return [];
-    return allUsers[user.email].books || [];
+    // With backend migration, user-owned books should eventually derive from backendBooks filtered by owner email.
+    if (!user) return [];
+    const backendOwned = backendBooks.filter(b => (b.ownerEmail || b.owner?.email) === user.email);
+    const legacy = allUsers[user.email]?.books || [];
+    return backendOwned.length ? backendOwned : legacy;
   };
 
   // Get all books from users in the same community (merge backend + local)
   const getCommunityBooks = () => {
     if (!userCommunity) return [];
     const local = [];
-    Object.values(allUsers).forEach(userData => {
-      if (userData.community === userCommunity && userData.books) {
-        local.push(...userData.books);
-      }
-    });
+  // legacy local merge (will be removed when all books are backend persisted)
+  Object.values(allUsers).forEach(userData => { if (userData.community === userCommunity && userData.books) local.push(...userData.books); });
     const remote = backendBooks.filter(b => (b.location?.community || b.community) === userCommunity);
     const seen = new Set();
     const merged = [];
@@ -87,6 +89,12 @@ const App = () => {
     });
     return merged;
   };
+
+  // Shared styles (registration)
+  const regInputStyle = { padding:'12px', fontSize:'1rem', border:'1px solid #ddd', borderRadius:4, boxSizing:'border-box' };
+  const regButtonStyle = { background:'#2E7D32', color:'#fff', border:'none', padding:'12px', fontSize:'1rem', borderRadius:4, cursor:'pointer' };
+  const adminTh = { padding:'12px', border:'1px solid #ddd', textAlign:'left', fontSize:13 };
+  const adminTd = { padding:'12px', border:'1px solid #ddd', fontSize:13 };
 
   // Initial backend fetch
   useEffect(() => {
@@ -128,6 +136,7 @@ const App = () => {
     // Attempt backend creation first; fall back to local if fails
     setCreatingBook(true); setCreateBookError(null);
     try {
+  console.log('[AddBook] starting backend create');
       const payload = {
         title: bookData.title,
         author: bookData.author || 'Unknown',
@@ -139,11 +148,13 @@ const App = () => {
         location: { community: userCommunity, address: '' }
       };
       const created = await createBook(payload);
+  console.log('[AddBook] backend created', created?._id);
       // Refresh list (simplest: refetch)
       try { setBackendBooks(await fetchBackendBooks()); } catch(_){}
       return created;
     } catch (e) {
       setCreateBookError(e.message);
+  console.warn('[AddBook] backend create failed', e.message);
       // Local fallback
       const newBook = {
         ...bookData,
@@ -158,13 +169,8 @@ const App = () => {
         maxRentalDays: bookData.maxRentalDays || 14,
         price: bookData.price || '₹10/day'
       };
-      setAllUsers(prev => ({
-        ...prev,
-        [user.email]: {
-          ...prev[user.email],
-          books: [...(prev[user.email]?.books || []), newBook]
-        }
-      }));
+  // Legacy local fallback (to be removed) – keep in-memory only
+  setAllUsers(prev => ({ ...prev, [user.email]: { ...(prev[user.email]||{}), books:[...(prev[user.email]?.books||[]), newBook] }}));
       return newBook;
     } finally { setCreatingBook(false); }
   };
@@ -231,170 +237,50 @@ const App = () => {
   
   // Complete checkout for a book request
   const completeCheckout = async (bookId, requesterId) => {
-    if (!user || bookId == null || !requesterId) return false;
-    
-    // Get the current user's books
-    const userEmail = user.email;
-    const userBooks = allUsers[userEmail]?.books;
-    if (!userBooks) return false;
-    
-    // Find the book and update its status
-  const bookIndex = userBooks.findIndex(book => String(book.id) === String(bookId));
-    if (bookIndex === -1) return false;
-    
-  // Get requester info from requests
-  const requesterRequest = bookRequests[userEmail]?.[bookId];
-    if (!requesterRequest) return false;
-    
-    // Update book status in user's collection
-    const updatedUserBooks = [...userBooks];
-    updatedUserBooks[bookIndex] = {
-      ...updatedUserBooks[bookIndex],
-      available: false,
-      status: 'borrowed',
-      borrower: requesterRequest.requesterName,
-      borrowerEmail: requesterRequest.requesterEmail,
-      borrowDate: new Date().toISOString(),
-      rentPerDay: updatedUserBooks[bookIndex].dailyRate || 10
-    };
-    
-    // Update allUsers state (use functional form then persist inside callback to avoid stale write)
-    setAllUsers(prev => {
-      const next = {
-        ...prev,
-        [userEmail]: {
-          ...prev[userEmail],
-          books: updatedUserBooks
-        }
-      };
-      localStorage.setItem('communityLibraryUsers', JSON.stringify(next));
-      return next;
-    });
-    
-    // Update request status
-    const updatedRequests = { ...bookRequests };
-    if (!updatedRequests[userEmail]) {
-      updatedRequests[userEmail] = {};
-    }
-    
-    // Try backend approval if we have backend request id
-    if (requesterRequest.requestId && !requesterRequest.requestId.startsWith('LOCAL-')) {
-      try {
-        await approveRequest(requesterRequest.requestId);
-      } catch (e) {
-        console.warn('Backend approve failed, continuing local:', e.message);
-      }
-    }
-
-    updatedRequests[userEmail][bookId] = {
-      ...requesterRequest,
-      status: 'borrowed',
-      checkoutDate: new Date().toISOString(),
-      approvalDate: new Date().toISOString()
-    };
-    
-  setBookRequests(updatedRequests);
-  localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
-
-  // Borrower notification (lightweight local implementation)
-  try {
-    const notificationsRaw = localStorage.getItem('communityLibraryNotifications');
-    const notifications = notificationsRaw ? JSON.parse(notificationsRaw) : {};
-    if (!notifications[requesterRequest.requesterEmail]) notifications[requesterRequest.requesterEmail] = [];
-    notifications[requesterRequest.requesterEmail].push({
-      type: 'checkout-approved',
-      bookTitle: updatedUserBooks[bookIndex].title,
-      owner: user.name,
-      date: new Date().toISOString(),
-      message: `Your checkout for "${updatedUserBooks[bookIndex].title}" was approved. You can now pick up / have picked up the book.`,
-      read: false
-    });
-    localStorage.setItem('communityLibraryNotifications', JSON.stringify(notifications));
-  } catch (_) {}
-
-    alert(`Checkout completed for ${updatedUserBooks[bookIndex].title}. The borrower has been notified.`);
-    return true;
-  };
-  
-  // Complete return for a borrowed book
-  const completeReturn = async (bookId) => {
     if (!user || !bookId) return false;
-    
-    // Get the current user's books
-    const userEmail = user.email;
-    const userBooks = allUsers[userEmail]?.books;
-    if (!userBooks) return false;
-    
-    // Find the book and update its status
-    const bookIndex = userBooks.findIndex(book => book.id === bookId);
-    if (bookIndex === -1) return false;
-    
-    const book = userBooks[bookIndex];
-    if (!book.borrowerEmail) return false;
-    
-    // Calculate earnings from this rental
-    const rentalDays = calculateRent(book.borrowDate, book.dailyRate) / book.dailyRate;
-    const earnings = rentalDays * book.dailyRate;
-    const previousEarnings = parseInt(book.earnings.replace('₹', '')) || 0;
-    const totalEarnings = previousEarnings + earnings;
-    
-    // Update book status in user's collection
-    const updatedUserBooks = [...userBooks];
-    updatedUserBooks[bookIndex] = {
-      ...updatedUserBooks[bookIndex],
-      available: true,
-      status: 'available',
-      borrower: null,
-      borrowerEmail: null,
-      returnDate: new Date().toISOString(),
-      earnings: `₹${totalEarnings}`
-    };
-    
-    // Update allUsers state
-    setAllUsers(prev => ({
-      ...prev,
-      [userEmail]: {
-        ...prev[userEmail],
-        books: updatedUserBooks
-      }
-    }));
-    
-    // Update request status
-    const updatedRequests = { ...bookRequests };
-    if (updatedRequests[userEmail] && updatedRequests[userEmail][bookId]) {
-      const reqObj = updatedRequests[userEmail][bookId];
-      if (reqObj.requestId && !reqObj.requestId.startsWith('LOCAL-')) {
-        try { await returnRequest(reqObj.requestId); } catch(e){ console.warn('Backend return failed, keeping local:', e.message); }
-      }
-      updatedRequests[userEmail][bookId] = {
-        ...reqObj,
-        status: 'completed',
-        returnDate: new Date().toISOString()
-      };
+    // Lookup local request to obtain backend requestId
+    const ownerEmail = user.email;
+    const req = bookRequests[ownerEmail]?.[bookId];
+    if (!req) { alert('Request not found'); return false; }
+    if (!req.requestId || req.requestId.startsWith('LOCAL-')) {
+      alert('Cannot approve locally stored request without backend id. Ask requester to re-initiate when backend is reachable.');
+      return false;
+    }
+    try {
+      await approveRequest(req.requestId);
+      const updatedRequests = { ...bookRequests };
+      updatedRequests[ownerEmail][bookId] = { ...req, status:'borrowed', approvalDate:new Date().toISOString(), checkoutDate:new Date().toISOString() };
       setBookRequests(updatedRequests);
       localStorage.setItem('communityLibraryRequests', JSON.stringify(updatedRequests));
+      alert('Checkout approved via backend.');
+      // Refresh backend books to reflect status change
+      try { setBackendBooks(await fetchBackendBooks()); } catch(_){}
+      return true;
+    } catch (e) {
+      alert('Backend approve failed: '+e.message);
+      return false;
     }
-
-    // Notify borrower of return completion
+  };
+  
+  const completeReturn = async (bookId) => {
+    if (!user || !bookId) return false;
+    const ownerEmail = user.email;
+    const req = bookRequests[ownerEmail]?.[bookId];
+    if (!req) { alert('No request record'); return false; }
+    if (!req.requestId || req.requestId.startsWith('LOCAL-')) { alert('Cannot finalize return for local-only request.'); return false; }
     try {
-      const borrowerEmail = book.borrowerEmail;
-      if (borrowerEmail) {
-        const notificationsRaw = localStorage.getItem('communityLibraryNotifications');
-        const notifications = notificationsRaw ? JSON.parse(notificationsRaw) : {};
-        if (!notifications[borrowerEmail]) notifications[borrowerEmail] = [];
-        notifications[borrowerEmail].push({
-          type: 'return-completed',
-          bookTitle: book.title,
-            owner: user.name,
-          date: new Date().toISOString(),
-          message: `Return recorded for "${book.title}". Thank you!`,
-          read: false
-        });
-        localStorage.setItem('communityLibraryNotifications', JSON.stringify(notifications));
-      }
-    } catch (_) {}
-    
-    return true;
+      await returnRequest(req.requestId);
+      const updated = { ...bookRequests };
+      updated[ownerEmail][bookId] = { ...req, status:'completed', returnDate:new Date().toISOString() };
+      setBookRequests(updated);
+      localStorage.setItem('communityLibraryRequests', JSON.stringify(updated));
+      alert('Return recorded via backend.');
+      try { setBackendBooks(await fetchBackendBooks()); } catch(_){}
+      return true;
+    } catch(e) {
+      alert('Backend return failed: '+e.message);
+      return false;
+    }
   };
 
   const navigate = (page) => {
@@ -777,8 +663,9 @@ const App = () => {
         }, 2000);
       };
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
+        setCreateBookError(null);
         const newBookData = {
           title: bookData.title,
           author: bookData.author,
@@ -788,11 +675,12 @@ const App = () => {
           description: bookData.description,
           imageUrl: bookData.imageUrl
         };
-        
-        // Add book to user's collection using the new function
-        addBookToUser(newBookData);
-        
-        alert(`Book "${bookData.title}" added successfully to your collection!`);
+        const created = await addBookToUser(newBookData);
+        if (createBookError) {
+          alert('Backend create failed, stored locally. Error: '+ createBookError);
+        } else {
+          alert(`Book "${bookData.title}" added${created? '':' (local fallback)'}!`);
+        }
         setShowAddBook(false);
         setBookData({ title: '', author: '', isbn: '', condition: 'good', price: '', description: '', imageUrl: '' });
       };
@@ -835,6 +723,11 @@ const App = () => {
               </button>
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {createBookError && (
+                <div style={{ background:'#ffebee', color:'#c62828', padding:'8px 10px', borderRadius:4, fontSize:12 }}>
+                  Backend error: {createBookError}
+                </div>
+              )}
               <input
                 type="text"
                 placeholder="Book Title *"
@@ -939,32 +832,7 @@ const App = () => {
                 style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '80px', resize: 'vertical' }}
               />
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddBook(false)}
-                  style={{
-                    padding: '12px 24px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    backgroundColor: 'white',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '12px 24px',
-                    border: 'none',
-                    borderRadius: '4px',
-                    backgroundColor: '#2E7D32',
-                    color: 'white',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Add Book
-                </button>
+                <button type="submit" disabled={creatingBook} style={{ backgroundColor: creatingBook? '#999':'#2E7D32', color:'#fff', border:'none', padding:'12px 24px', borderRadius:4, cursor: creatingBook? 'not-allowed':'pointer', fontSize:'1rem' }}>{creatingBook? 'Saving...' : 'Add Book'}</button>
               </div>
             </form>
           </div>
@@ -2081,102 +1949,59 @@ const App = () => {
       );
     };
 
-    const AdminUsersModal = () => (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '30px',
-          borderRadius: '8px',
-          maxWidth: '1000px',
-          width: '90%',
-          maxHeight: '80vh',
-          overflow: 'auto'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 style={{ margin: 0, color: '#333' }}>👥 User Management</h3>
-            <button
-              onClick={() => setShowAdminUsers(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer'
-              }}
-            >
-              ×
-            </button>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f5f5f5' }}>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Email</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Community</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Books</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(allUsers).map(([email, userData]) => (
-                  <tr key={email}>
-                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{email}</td>
-                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{userData.community}</td>
-                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{userData.books?.length || 0}</td>
-                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>
-                      <span style={{ 
-                        padding: '4px 8px', 
-                        borderRadius: '4px', 
-                        fontSize: '0.8rem',
-                        backgroundColor: userData.verified !== false ? '#e8f5e8' : '#ffebee',
-                        color: userData.verified !== false ? '#2e7d32' : '#d32f2f'
-                      }}>
-                        {userData.verified !== false ? 'Verified' : 'Pending'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>
-                      <button
-                        style={{
-                          backgroundColor: userData.verified !== false ? '#d32f2f' : '#2e7d32',
-                          color: 'white',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem'
-                        }}
-                        onClick={() => {
-                          const updatedUsers = { ...allUsers };
-                          updatedUsers[email] = { 
-                            ...userData, 
-                            verified: userData.verified === false ? true : false 
-                          };
-                          setAllUsers(updatedUsers);
-                          localStorage.setItem('communityLibraryAllUsers', JSON.stringify(updatedUsers));
-                        }}
-                      >
-                        {userData.verified !== false ? 'Suspend' : 'Verify'}
-                      </button>
-                    </td>
+    const AdminUsersModal = () => {
+      const [users, setUsers] = useState([]);
+      const [loadingUsers, setLoadingUsers] = useState(true);
+      const [err, setErr] = useState('');
+      useEffect(()=> { (async()=>{ try { setErr(''); setLoadingUsers(true); const list = await require('./apiClient').listUsersAdmin(); setUsers(list);} catch(e){ setErr(e.message);} finally { setLoadingUsers(false);} })(); },[]);
+      return (
+        <div style={{ position:'fixed', top:0,left:0,right:0,bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000 }}>
+          <div style={{ background:'#fff', padding:30, borderRadius:8, maxWidth:1000, width:'90%', maxHeight:'80vh', overflow:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <h3 style={{ margin:0 }}>👥 User Management</h3>
+              <button onClick={()=> setShowAdminUsers(false)} style={{ background:'none', border:'none', fontSize:24, cursor:'pointer' }}>×</button>
+            </div>
+            {err && <div style={{ background:'#ffebee', color:'#c62828', padding:'8px 12px', borderRadius:4, fontSize:12 }}>{err}</div>}
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', marginTop:20 }}>
+                <thead>
+                  <tr style={{ background:'#f5f5f5' }}>
+                    <th style={adminTh}>Name</th>
+                    <th style={adminTh}>Email</th>
+                    <th style={adminTh}>Community</th>
+                    <th style={adminTh}>Persona</th>
+                    <th style={adminTh}>Books</th>
+                    <th style={adminTh}>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {loadingUsers && (
+                    <tr><td colSpan={6} style={{ padding:20, textAlign:'center' }}>Loading users...</td></tr>
+                  )}
+                  {!loadingUsers && users.length===0 && (
+                    <tr><td colSpan={6} style={{ padding:20, textAlign:'center', fontSize:14 }}>No users found.</td></tr>
+                  )}
+                  {users.map(u => (
+                    <tr key={u._id}>
+                      <td style={adminTd}>{u.name}</td>
+                      <td style={adminTd}>{u.email}</td>
+                      <td style={adminTd}>{u.community}</td>
+                      <td style={adminTd}>{u.persona}</td>
+                      <td style={adminTd}>{u.stats?.booksOwned ?? (u.books?.length || 0)}</td>
+                      <td style={adminTd}>
+                        <span style={{ padding:'4px 8px', borderRadius:4, fontSize:12, background: u.status!=='suspended' ? '#e8f5e8':'#ffebee', color: u.status!=='suspended' ? '#2e7d32':'#d32f2f' }}>
+                          {u.status || 'active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    };
 
     const AdminBooksModal = () => (
       <div style={{
@@ -3112,234 +2937,113 @@ const App = () => {
 
   const RegisterPage = () => {
     const [formData, setFormData] = useState({
-      fullName: '',
-      email: '',
-      mobile: '',
-  whatsappSame: true,
-  whatsappNumber: '',
-      community: '',
-      blockNumber: '',
-      apartmentNumber: '',
-      password: '',
-      confirmPassword: ''
+      fullName: '', email: '', mobile: '', whatsappSame: true, whatsappNumber: '', community: '', blockNumber: '', apartmentNumber: '', password: '', confirmPassword: ''
     });
+    const [step, setStep] = useState('form'); // form | otp | success
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [otpCode, setOtpCode] = useState('');
+    const [pendingIdentity, setPendingIdentity] = useState({ email:'', phone:'' });
 
-    const communities = [
-      'Aparna Sarovar Zenith',
-      'Aparna Sarovar',
-      'Aparna Cyberzon',
-      'Aparna Cyberlife',
-      'Aparna Cybercommune',
-      'Aparna Sarovar Zicon',
-      'Aparna Sarovar Grande'
-    ];
+    const communities = [ 'Aparna Sarovar Zenith','Aparna Sarovar','Aparna Cyberzon','Aparna Cyberlife','Aparna Cybercommune','Aparna Sarovar Zicon','Aparna Sarovar Grande' ];
 
-    const handleSubmit = (e) => {
+    const startRegistration = async (e) => {
       e.preventDefault();
-      if (formData.password !== formData.confirmPassword) {
-        alert('Passwords do not match!');
-        return;
-      }
-      
-      const userData = { 
-        name: formData.fullName, 
-        email: formData.email, 
-        mobile: formData.mobile,
-        whatsapp: formData.whatsappSame ? formData.mobile : formData.whatsappNumber,
-        whatsappConsent: true,
-        blockNumber: formData.blockNumber,
-        apartmentNumber: formData.apartmentNumber,
-        community: formData.community,
-        password: formData.password
-      };
-      
-      // Register user in allUsers
-      setAllUsers(prev => ({
-        ...prev,
-        [formData.email]: {
-          ...userData,
-          books: []
-        }
-      }));
-      
-      setUser(userData);
-      setUserCommunity(formData.community);
-      localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(userData));
-      
-      alert(`Registration successful! Welcome to ${formData.community}, Block ${formData.blockNumber}, Apt ${formData.apartmentNumber}`);
-      navigate('dashboard');
+      setError('');
+      if (formData.password !== formData.confirmPassword) return setError('Passwords do not match');
+      try {
+        setLoading(true);
+        const payload = {
+          name: formData.fullName,
+          email: formData.email,
+          mobile: formData.mobile,
+          whatsapp: formData.whatsappSame ? formData.mobile : formData.whatsappNumber,
+          whatsappConsent: true,
+          blockNumber: formData.blockNumber,
+          apartmentNumber: formData.apartmentNumber,
+            community: formData.community,
+          password: formData.password
+        };
+        const { userId, email, phoneNumber } = await require('./apiClient').registerUser(payload);
+        setPendingIdentity({ email, phone: phoneNumber });
+        setStep('otp');
+      } catch (err) {
+        setError(err.message);
+      } finally { setLoading(false); }
+    };
+
+    const completeVerification = async (e) => {
+      e.preventDefault();
+      setError('');
+      if (!otpCode) return setError('Enter the OTP sent to your phone/email (simulated)');
+      try {
+        setLoading(true);
+        const { verified } = await require('./apiClient').verifyOtp({ email: pendingIdentity.email, otp: otpCode });
+        if (!verified) return setError('OTP not valid');
+        // Auto-login after verification by calling login API
+        const loginRes = await require('./apiClient').loginUser(formData.email, formData.password);
+        const { user, tokens } = loginRes;
+        localStorage.setItem('communityLibraryJwt', tokens.accessToken);
+        localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(user));
+        setUser(user);
+        setUserCommunity(user.community);
+        setStep('success');
+        setTimeout(()=> navigate('dashboard'), 1200);
+      } catch (err) {
+        setError(err.message);
+      } finally { setLoading(false); }
     };
 
     return (
-      <div style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
-  <h2 style={{ textAlign: "center", marginBottom: "30px", color: "#333" }}>Join ComLib</h2>
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={formData.fullName}
-            onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
-            style={{ 
-              padding: "12px", 
-              fontSize: "1rem", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              boxSizing: "border-box"
-            }}
-            required
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-            style={{ 
-              padding: "12px", 
-              fontSize: "1rem", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              boxSizing: "border-box"
-            }}
-            required
-          />
-          <input
-            type="tel"
-            placeholder="Mobile Number (+91XXXXXXXXXX)"
-            value={formData.mobile}
-            onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value }))}
-            style={{ 
-              padding: "12px", 
-              fontSize: "1rem", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              boxSizing: "border-box"
-            }}
-            required
-          />
-          <div style={{background:'#f5f5f5', padding:'10px', border:'1px solid #ddd', borderRadius:'4px'}}>
-            <label style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'0.9rem'}}>
-              <input type="checkbox" checked={formData.whatsappSame} onChange={e=> setFormData(p=>({...p, whatsappSame: e.target.checked}))} />
-              Use same number for WhatsApp communication
-            </label>
-            {!formData.whatsappSame && (
-              <input
-                type="tel"
-                placeholder="WhatsApp Number"
-                value={formData.whatsappNumber}
-                onChange={(e)=> setFormData(p=>({...p, whatsappNumber: e.target.value}))}
-                style={{ marginTop:'8px', padding:'10px', width:'100%', border:'1px solid #ccc', borderRadius:'4px'}}
-                required
-              />
-            )}
-            <p style={{margin:'8px 0 0 0', fontSize:'0.7rem', color:'#555'}}>We'll use this number for borrow/return coordination only.</p>
+      <div style={{ padding:'2rem', maxWidth:400, margin:'0 auto' }}>
+        <h2 style={{ textAlign:'center', marginBottom:30, color:'#333' }}>Join ComLib</h2>
+        {step==='form' && (
+          <form onSubmit={startRegistration} style={{ display:'flex', flexDirection:'column', gap:20 }}>
+            {error && <div style={{ background:'#ffebee', color:'#c62828', padding:'8px 10px', borderRadius:4, fontSize:12 }}>{error}</div>}
+            <input placeholder="Full Name" value={formData.fullName} onChange={e=>setFormData(p=>({...p, fullName:e.target.value}))} required style={regInputStyle} />
+            <input type="email" placeholder="Email" value={formData.email} onChange={e=>setFormData(p=>({...p, email:e.target.value}))} required style={regInputStyle} />
+            <input type="tel" placeholder="Mobile Number (+91XXXXXXXXXX)" value={formData.mobile} onChange={e=>setFormData(p=>({...p, mobile:e.target.value}))} required style={regInputStyle} />
+            <div style={{background:'#f5f5f5', padding:10, border:'1px solid #ddd', borderRadius:4}}>
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:14 }}>
+                <input type="checkbox" checked={formData.whatsappSame} onChange={e=> setFormData(p=>({...p, whatsappSame:e.target.checked}))} /> Same number for WhatsApp
+              </label>
+              {!formData.whatsappSame && (
+                <input type="tel" placeholder="WhatsApp Number" value={formData.whatsappNumber} onChange={e=>setFormData(p=>({...p, whatsappNumber:e.target.value}))} style={{ marginTop:8, padding:10, width:'100%', border:'1px solid #ccc', borderRadius:4 }} required />
+              )}
+              <p style={{margin:'8px 0 0', fontSize:11, color:'#555'}}>Used only for borrow/return coordination.</p>
+            </div>
+            <select value={formData.community} onChange={e=>setFormData(p=>({...p, community:e.target.value}))} required style={regInputStyle}>
+              <option value="">Select Your Community/Society</option>
+              {communities.map(c=> <option key={c} value={c}>{c}</option>)}
+            </select>
+            <div style={{ display:'flex', gap:10 }}>
+              <input placeholder="Block" value={formData.blockNumber} onChange={e=>setFormData(p=>({...p, blockNumber:e.target.value}))} required style={{...regInputStyle, flex:1}} />
+              <input placeholder="Apartment" value={formData.apartmentNumber} onChange={e=>setFormData(p=>({...p, apartmentNumber:e.target.value}))} required style={{...regInputStyle, flex:1}} />
+            </div>
+            <input type="password" placeholder="Password" value={formData.password} onChange={e=>setFormData(p=>({...p, password:e.target.value}))} required style={regInputStyle} />
+            <input type="password" placeholder="Confirm Password" value={formData.confirmPassword} onChange={e=>setFormData(p=>({...p, confirmPassword:e.target.value}))} required style={regInputStyle} />
+            <button disabled={loading} type="submit" style={regButtonStyle}>{loading? 'Creating...' : 'Create Account'}</button>
+          </form>
+        )}
+        {step==='otp' && (
+          <form onSubmit={completeVerification} style={{ display:'flex', flexDirection:'column', gap:16 }}>
+            {error && <div style={{ background:'#ffebee', color:'#c62828', padding:'8px 10px', borderRadius:4, fontSize:12 }}>{error}</div>}
+            <p style={{ fontSize:14, lineHeight:1.4 }}>We sent a verification code to <strong>{pendingIdentity.email}</strong>. Enter the 6-digit OTP to verify your account (simulation accepts any 6 digits).</p>
+            <input value={otpCode} onChange={e=> setOtpCode(e.target.value)} placeholder="Enter OTP" required style={regInputStyle} maxLength={6} />
+            <div style={{ display:'flex', gap:10 }}>
+              <button type="button" disabled={loading} onClick={()=> setStep('form')} style={{...regButtonStyle, background:'#888'}}>Back</button>
+              <button type="submit" disabled={loading || otpCode.length<4} style={regButtonStyle}>{loading? 'Verifying...' : 'Verify & Continue'}</button>
+            </div>
+          </form>
+        )}
+        {step==='success' && (
+          <div style={{ textAlign:'center' }}>
+            <h3>Registration Complete</h3>
+            <p style={{ fontSize:14 }}>Redirecting to dashboard...</p>
           </div>
-          <select
-            value={formData.community}
-            onChange={(e) => setFormData(prev => ({ ...prev, community: e.target.value }))}
-            style={{ 
-              padding: "12px", 
-              fontSize: "1rem", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              boxSizing: "border-box"
-            }}
-            required
-          >
-            <option value="">Select Your Community/Society</option>
-            {communities.map(community => (
-              <option key={community} value={community}>{community}</option>
-            ))}
-          </select>
-          <div style={{ display: "flex", gap: "10px" }}>
-            <input
-              type="text"
-              placeholder="Block Number"
-              value={formData.blockNumber}
-              onChange={(e) => setFormData(prev => ({ ...prev, blockNumber: e.target.value }))}
-              style={{ 
-                padding: "12px", 
-                fontSize: "1rem", 
-                border: "1px solid #ddd", 
-                borderRadius: "4px",
-                boxSizing: "border-box",
-                flex: 1
-              }}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Apartment Number"
-              value={formData.apartmentNumber}
-              onChange={(e) => setFormData(prev => ({ ...prev, apartmentNumber: e.target.value }))}
-              style={{ 
-                padding: "12px", 
-                fontSize: "1rem", 
-                border: "1px solid #ddd", 
-                borderRadius: "4px",
-                boxSizing: "border-box",
-                flex: 1
-              }}
-              required
-            />
-          </div>
-          <input
-            type="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-            style={{ 
-              padding: "12px", 
-              fontSize: "1rem", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              boxSizing: "border-box"
-            }}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={formData.confirmPassword}
-            onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-            style={{ 
-              padding: "12px", 
-              fontSize: "1rem", 
-              border: "1px solid #ddd", 
-              borderRadius: "4px",
-              boxSizing: "border-box"
-            }}
-            required
-          />
-          <button
-            type="submit"
-            style={{
-              backgroundColor: "#2E7D32",
-              color: "white",
-              border: "none",
-              padding: "12px",
-              fontSize: "1rem",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            Create Account
-          </button>
-        </form>
-        <p style={{ textAlign: "center", marginTop: "20px" }}>
-          Already have an account? 
-          <button 
-            onClick={() => navigate('login')}
-            style={{ 
-              background: "none", 
-              border: "none", 
-              color: "#2E7D32", 
-              cursor: "pointer", 
-              textDecoration: "underline",
-              marginLeft: "5px"
-            }}
-          >
-            Login here
-          </button>
+        )}
+        <p style={{ textAlign:'center', marginTop:20 }}>
+          Already have an account? <button onClick={()=> navigate('login')} style={{ background:'none', border:'none', color:'#2E7D32', cursor:'pointer', textDecoration:'underline', marginLeft:5 }}>Login here</button>
         </p>
       </div>
     );
