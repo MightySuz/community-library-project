@@ -51,6 +51,12 @@ jobs:
         with:
           name: node-app
 
+      - name: List downloaded files
+        run: |
+          echo "PWD: $(pwd)"
+          ls -al
+          ls -al node-app || true
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -63,5 +69,5 @@ jobs:
         with:
           app-name: community-library-backend
           slot-name: Production
-          package: node-app
+          package: ./node-app
           
