@@ -8,6 +8,11 @@ on:
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
+# Ensure only one deploy for a given ref runs; cancel older queued ones
+concurrency:
+  group: backend-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     # Pin to 20.04 to retain older OpenSSL 1.1 libs (avoids libcrypto.so.1.1 issues)
@@ -44,6 +49,16 @@ jobs:
 
       - name: Show files (debug)
         run: ls -al && cat package.json
+
+      - name: Configure App Settings (enable Oryx build)
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: community-library-backend
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+          app-settings-json: |
+            [
+              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false }
+            ]
 
       - name: Archive artifact
         run: zip -r ../backend.zip . -x "**/tests/**" "**/coverage/**"

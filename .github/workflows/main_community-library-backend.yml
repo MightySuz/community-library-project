@@ -27,12 +27,19 @@ jobs:
         working-directory: backend
         run: npm install --omit=dev
 
+      - name: Verify dependencies installed
+        working-directory: backend
+        run: |
+          test -f node_modules/express/package.json || (echo 'Express not installed' && ls -al node_modules || true && exit 1)
+          du -sh node_modules | awk '{print "node_modules size: "$1}'
+
       - name: Package backend (zip with node_modules)
         working-directory: backend
         run: |
           rm -rf tests coverage || true
           zip -r ../package.zip . > /dev/null
           ls -lh ../package.zip
+          unzip -l ../package.zip | grep express/package.json || echo "(express file listing suppressed)"
 
       - name: Upload artifact (zip)
         uses: actions/upload-artifact@v4
