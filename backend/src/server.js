@@ -9,24 +9,25 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Database connection
+// Database connection (non-fatal on first failure so health endpoint still works)
+let dbStatus = 'connecting';
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverSelectionTimeoutMS: 15000,
   retryWrites: true,
   tls: true,
-  // For modern Atlas deployments (optional but clearer)
   serverApi: { version: '1', strict: false, deprecationErrors: false }
 })
   .then(() => {
+    dbStatus = 'connected';
     console.log('✅ Connected to MongoDB');
   })
   .catch((error) => {
-    console.error('❌ MongoDB connection error:', error.message);
+    dbStatus = 'error';
+    console.error('❌ MongoDB connection error (app will continue running):', error.message);
     if (error.reason) console.error('Reason:', JSON.stringify(error.reason, null, 2));
-    console.error('Hint: Ensure your IP is whitelisted in Atlas, the URI has no leading/trailing spaces, and the cluster is in READY state.');
-    process.exit(1);
+    console.error('Hint: Check MONGODB_URI value in App Service > Configuration.');
   });
 
 // Middleware
@@ -66,9 +67,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'Community Library API is running',
+    dbStatus,
     timestamp: new Date().toISOString()
   });
 });
