@@ -10,7 +10,8 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    # Pin to 20.04 to retain older OpenSSL 1.1 libs (avoids libcrypto.so.1.1 issues)
+    runs-on: ubuntu-20.04
     defaults:
       run:
         working-directory: backend
@@ -31,6 +32,15 @@ jobs:
             echo "No package-lock.json found; running npm install"
             npm install --omit=dev
           fi
+
+      # Only needed if a future change installs devDependencies including mongodb-memory-server
+      - name: (Optional) SSL compatibility (libcrypto) for mongodb-memory-server
+        if: always()
+        run: |
+          echo "Ensuring OpenSSL 1.1 compatibility (noop if already present)"
+          sudo apt-get update -y
+          sudo apt-get install -y libssl1.1 || echo "libssl1.1 not available; creating symlink to libcrypto.so.3"
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 || true
 
       - name: Show files (debug)
         run: ls -al && cat package.json
