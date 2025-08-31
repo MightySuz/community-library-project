@@ -28,11 +28,11 @@ jobs:
         run: npm install --omit=dev
 
       - name: Package backend
+        working-directory: backend
         run: |
-          cp -r backend dist-backend
-          rm -rf dist-backend/tests dist-backend/coverage || true
-          ls -al dist-backend
-          zip -r backend.zip dist-backend > /dev/null
+          rm -rf tests coverage || true
+          ls -al
+          zip -r ../backend.zip . -x "tests/*" "coverage/*" > /dev/null
 
       - name: Upload artifact (zip)
         uses: actions/upload-artifact@v4
