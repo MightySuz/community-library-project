@@ -23,17 +23,22 @@ jobs:
         with:
           node-version: '18.x'
 
-      # Upload raw backend source; let Azure Oryx perform npm install
-      - name: Prepare backend (no install)
-        run: |
-          ls -al backend
-          grep -i "\"express\"" backend/package.json || (echo "Express not listed!" && exit 1)
+      - name: Install production dependencies
+        working-directory: backend
+        run: npm install --omit=dev
 
-      - name: Upload artifact (source)
+      - name: Package backend (zip with node_modules)
+        working-directory: backend
+        run: |
+          rm -rf tests coverage || true
+          zip -r ../package.zip . > /dev/null
+          ls -lh ../package.zip
+
+      - name: Upload artifact (zip)
         uses: actions/upload-artifact@v4
         with:
           name: backend-package
-          path: backend
+          path: package.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -51,7 +56,7 @@ jobs:
         run: |
           echo "PWD: $(pwd)"
           ls -al
-          ls -al backend || true
+          ls -al
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -65,6 +70,5 @@ jobs:
         with:
           app-name: community-library-backend
           slot-name: Production
-          package: backend
-          enable-oryx-build: true
+          package: package.zip
           
