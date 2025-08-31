@@ -32,12 +32,13 @@ jobs:
           cp -r backend dist-backend
           rm -rf dist-backend/tests dist-backend/coverage || true
           ls -al dist-backend
+          zip -r backend.zip dist-backend > /dev/null
 
-      - name: Upload artifact
+      - name: Upload artifact (zip)
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: dist-backend
+          name: backend-package
+          path: backend.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -49,13 +50,13 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: backend-package
 
       - name: List downloaded files
         run: |
           echo "PWD: $(pwd)"
           ls -al
-          ls -al node-app || true
+          ls -al *.zip || true
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -69,5 +70,5 @@ jobs:
         with:
           app-name: community-library-backend
           slot-name: Production
-          package: ./node-app
+          package: backend.zip
           
