@@ -1,4 +1,4 @@
-name: Deploy Backend (Monorepo Bundle)
+name: Deploy Backend (Direct Backend Install)
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Bundle backend folder with root node_modules
+    name: Install & Zip backend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,39 +24,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
-      - name: Install workspaces prod deps at root
+      - name: Install backend production deps
+        working-directory: backend
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci --omit=dev
-          else
-            npm install --omit=dev
-          fi
-          echo "Root install complete"; ls -1 backend/src | head
-          test -f node_modules/express/package.json || (echo 'Express missing after install' && exit 1)
+          npm install --omit=dev
+          test -f node_modules/express/package.json || (echo 'Express still missing after install' && ls -al node_modules | head && exit 1)
+          du -sh node_modules | awk '{print "backend node_modules size: "$1}'
 
-      - name: Create deploy directory (backend + node_modules)
+      - name: Package backend (zip with node_modules)
+        working-directory: backend
         run: |
-          rm -rf deploy
-          mkdir -p deploy
-          cp -R backend/* deploy/
-          # Copy root node_modules (hoisted) into deploy/node_modules so backend can resolve deps
-          rsync -a --exclude='*.log' --exclude='test' node_modules deploy/node_modules
-          # Ensure package.json is backend's
-          jq '. + { "private": false }' backend/package.json > deploy/package.json
-          # Simple start script verification
-          node -e "require('./deploy/package.json'); console.log('Package main:', require('./deploy/package.json').main)"
-          ls -lh deploy | head
-          du -sh deploy/node_modules | awk '{print "node_modules size: "$1}'
-
-      - name: Zip deploy directory
-        run: |
-          cd deploy
+          rm -rf tests coverage || true
           zip -r ../backend.zip . > /dev/null
           cd ..
           ls -lh backend.zip
           unzip -l backend.zip | grep server.js || true
-
       - name: Deploy zip (no build)
         uses: azure/webapps-deploy@v3
         with:
