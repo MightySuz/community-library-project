@@ -15,8 +15,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    # Pin to 20.04 to retain older OpenSSL 1.1 libs (avoids libcrypto.so.1.1 issues)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
@@ -28,6 +27,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
         run: |
@@ -38,14 +39,6 @@ jobs:
             npm install --omit=dev
           fi
 
-      # Only needed if a future change installs devDependencies including mongodb-memory-server
-      - name: (Optional) SSL compatibility (libcrypto) for mongodb-memory-server
-        if: always()
-        run: |
-          echo "Ensuring OpenSSL 1.1 compatibility (noop if already present)"
-          sudo apt-get update -y
-          sudo apt-get install -y libssl1.1 || echo "libssl1.1 not available; creating symlink to libcrypto.so.3"
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 || true
 
       - name: Show files (debug)
         run: ls -al && cat package.json
@@ -70,7 +63,12 @@ jobs:
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: backend.zip
 
-      - name: Curl health (post-deploy)
+      - name: Curl health (post-deploy with retries)
         run: |
-          sleep 15
-          curl -fsS https://community-library-backend.azurewebsites.net/api/health || exit 1
+          for i in 1 2 3 4 5; do
+            echo "Health check attempt $i";
+            if curl -fsS https://community-library-backend.azurewebsites.net/api/health; then
+              echo "Healthy"; exit 0; fi;
+            sleep 10;
+          done;
+          echo "Health endpoint failed after retries"; exit 1
