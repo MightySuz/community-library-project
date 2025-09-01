@@ -1,4 +1,4 @@
-name: Deploy Backend to Azure App Service
+name: Deploy Backend (Clean Zip)
 
 on:
   push:
@@ -8,13 +8,13 @@ on:
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
-# Ensure only one deploy for a given ref runs; cancel older queued ones
 concurrency:
-  group: backend-deploy-${{ github.ref }}
+  group: backend-clean-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy:
+    name: Zip & Deploy
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,48 +27,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install production dependencies (npm ci)
         run: |
           if [ -f package-lock.json ]; then
             npm ci --omit=dev
           else
-            echo "No package-lock.json found; running npm install"
             npm install --omit=dev
           fi
+          node -p "'Express version: ' + require('./node_modules/express/package.json').version"
 
+      - name: Create deployment package (include node_modules)
+        run: |
+          rm -rf tests coverage || true
+            zip -r ../backend.zip . \
+              -x "**/tests/**" "**/coverage/**" "**/.DS_Store" \
+              -x "**/*.log" > /dev/null
+          ls -lh ../backend.zip
+          unzip -l ../backend.zip | grep server.js || true
 
-      - name: Show files (debug)
-        run: ls -al && cat package.json
-
-      - name: Configure App Settings (enable Oryx build)
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: community-library-backend
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-          app-settings-json: |
-            [
-              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false }
-            ]
-
-      - name: Archive artifact
-        run: zip -r ../backend.zip . -x "**/tests/**" "**/coverage/**"
-
-      - name: Deploy to Azure Web App
+      - name: Deploy via publish profile (skip Oryx build)
         uses: azure/webapps-deploy@v3
         with:
           app-name: community-library-backend
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: backend.zip
+          enable-oryx-build: false
 
-      - name: Curl health (post-deploy with retries)
+      - name: Post-deploy health check (retry)
         run: |
           for i in 1 2 3 4 5; do
-            echo "Health check attempt $i";
-            if curl -fsS https://community-library-backend.azurewebsites.net/api/health; then
-              echo "Healthy"; exit 0; fi;
+            echo "Attempt $i";
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://community-library-backend.azurewebsites.net/api/health || true)
+            if [ "$STATUS" = "200" ]; then
+              curl -fsS https://community-library-backend.azurewebsites.net/api/health; exit 0; fi
             sleep 10;
-          done;
-          echo "Health endpoint failed after retries"; exit 1
+          done
+          echo "Health endpoint not reachable"; exit 1
