@@ -55,6 +55,9 @@
   ],
   "author": "Community Library Team",
   "license": "MIT",
+  "engines": {
+    "node": ">=18 <19"
+  },
   "jest": {
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
