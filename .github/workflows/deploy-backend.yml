@@ -1,4 +1,4 @@
-name: Deploy Backend (Clean Zip)
+name: Deploy Backend (Monorepo Bundle)
 
 on:
   push:
@@ -14,11 +14,8 @@ concurrency:
 
 jobs:
   deploy:
-    name: Zip & Deploy
+    name: Bundle backend folder with root node_modules
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,25 +25,39 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install production dependencies (npm ci)
+      - name: Install workspaces prod deps at root
         run: |
           if [ -f package-lock.json ]; then
             npm ci --omit=dev
           else
             npm install --omit=dev
           fi
-          node -p "'Express version: ' + require('./node_modules/express/package.json').version"
+          echo "Root install complete"; ls -1 backend/src | head
+          test -f node_modules/express/package.json || (echo 'Express missing after install' && exit 1)
 
-      - name: Create deployment package (include node_modules)
+      - name: Create deploy directory (backend + node_modules)
         run: |
-          rm -rf tests coverage || true
-            zip -r ../backend.zip . \
-              -x "**/tests/**" "**/coverage/**" "**/.DS_Store" \
-              -x "**/*.log" > /dev/null
-          ls -lh ../backend.zip
-          unzip -l ../backend.zip | grep server.js || true
+          rm -rf deploy
+          mkdir -p deploy
+          cp -R backend/* deploy/
+          # Copy root node_modules (hoisted) into deploy/node_modules so backend can resolve deps
+          rsync -a --exclude='*.log' --exclude='test' node_modules deploy/node_modules
+          # Ensure package.json is backend's
+          jq '. + { "private": false }' backend/package.json > deploy/package.json
+          # Simple start script verification
+          node -e "require('./deploy/package.json'); console.log('Package main:', require('./deploy/package.json').main)"
+          ls -lh deploy | head
+          du -sh deploy/node_modules | awk '{print "node_modules size: "$1}'
 
-      - name: Deploy via publish profile (skip Oryx build)
+      - name: Zip deploy directory
+        run: |
+          cd deploy
+          zip -r ../backend.zip . > /dev/null
+          cd ..
+          ls -lh backend.zip
+          unzip -l backend.zip | grep server.js || true
+
+      - name: Deploy zip (no build)
         uses: azure/webapps-deploy@v3
         with:
           app-name: community-library-backend
@@ -61,6 +72,6 @@ jobs:
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://community-library-backend.azurewebsites.net/api/health || true)
             if [ "$STATUS" = "200" ]; then
               curl -fsS https://community-library-backend.azurewebsites.net/api/health; exit 0; fi
-            sleep 10;
+            sleep 12;
           done
           echo "Health endpoint not reachable"; exit 1
