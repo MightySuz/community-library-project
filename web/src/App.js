@@ -2779,10 +2779,68 @@ const App = () => {
         else if (formData.emailOrUsername.includes('sarovar') || formData.emailOrUsername === 'sarovar_user') community = 'Aparna Sarovar';
         else if (formData.emailOrUsername.includes('cyberzon') || formData.emailOrUsername === 'cyberzon_user') community = 'Aparna Cyberzon';
         userData.community = community; userData.role = role;
-        setAllUsers(prev => ({ ...prev, [userData.email]: { ...userData, books: [] } }));
+        
+        // Add sample books for demo
+        const sampleBooks = [
+          {
+            id: 1,
+            title: "The Alchemist",
+            author: "Paulo Coelho",
+            isbn: "9780062315007",
+            condition: "excellent",
+            price: "10",
+            maxRentalDays: 14,
+            description: "A philosophical novel about pursuing dreams",
+            imageUrl: "https://images-na.ssl-images-amazon.com/images/I/71aFt4+OTOL.jpg",
+            community: community,
+            status: "available",
+            ownerEmail: userData.email,
+            ownerName: userData.name,
+            borrowerEmail: null,
+            borrowDate: null,
+            dailyRate: 10
+          },
+          {
+            id: 2,
+            title: "To Kill a Mockingbird",
+            author: "Harper Lee",
+            isbn: "9780061120084",
+            condition: "good",
+            price: "8",
+            maxRentalDays: 14,
+            description: "Classic American literature",
+            imageUrl: "https://images-na.ssl-images-amazon.com/images/I/51IXWZzlgSL._SX330_BO1,204,203,200_.jpg",
+            community: community,
+            status: "available",
+            ownerEmail: userData.email,
+            ownerName: userData.name,
+            borrowerEmail: null,
+            borrowDate: null,
+            dailyRate: 8
+          },
+          {
+            id: 3,
+            title: "1984",
+            author: "George Orwell",
+            isbn: "9780451524935",
+            condition: "excellent",
+            price: "12",
+            maxRentalDays: 14,
+            description: "Dystopian social science fiction novel",
+            imageUrl: "https://images-na.ssl-images-amazon.com/images/I/61ZewDE3beL.jpg",
+            community: community,
+            status: "available",
+            ownerEmail: userData.email,
+            ownerName: userData.name,
+            borrowerEmail: null,
+            borrowDate: null,
+            dailyRate: 12
+          }
+        ];
+        
+        setAllUsers(prev => ({ ...prev, [userData.email]: { ...userData, books: sampleBooks } }));
         setUser(userData); setUserCommunity(community);
         localStorage.setItem('communityLibraryCurrentUser', JSON.stringify(userData));
-        alert(`Demo login: ${community}`);
         navigate('dashboard');
       } catch (err) {
         setLoginError(err.message);
